@@ -37,6 +37,7 @@ class FlowQuakeTPP(nn.Module):
         sigma_min: tuple[float, float, float] = (0.0, 0.0, 0.0),
         dropout: float = 0.0,
         mag_dequant: float = 0.0,  # raw magnitude units (catalog grid ~0.01)
+        input_noise: float = 0.0,  # train-time token jitter (normalized units)
     ):
         super().__init__()
         self.encoder = SSMEncoder(
@@ -52,6 +53,7 @@ class FlowQuakeTPP(nn.Module):
                                n_layers=flow_layers, sigma_min=sm, dropout=dropout)
         self.h_drop = nn.Dropout(dropout)
         self.mag_dequant = mag_dequant
+        self.input_noise = input_noise
         self.loss_weights = loss_weights
         self.stats = dict(stats or {})
 
@@ -59,6 +61,11 @@ class FlowQuakeTPP(nn.Module):
 
     def fm_losses(self, tokens: torch.Tensor, target: torch.Tensor, mask: torch.Tensor):
         """tokens/target: (B, W, 4); mask: (B, W) bool over prediction positions."""
+        if self.training and self.input_noise > 0:
+            # Fresh history jitter every visit: the encoder state cannot
+            # become a unique fingerprint of catalog position, which is the
+            # memorization channel for the heads.
+            tokens = tokens + self.input_noise * torch.randn_like(tokens)
         h = self.encoder(tokens)
         h = self.h_drop(h[mask])  # (K, d_model)
         tgt = target[mask]        # (K, 4) normalized [log_tau, x, y, m]

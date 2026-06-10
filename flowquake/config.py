@@ -33,6 +33,7 @@ class ModelConfig:
     sigma_min: tuple = (0.02, 0.01, 0.05)
     dropout: float = 0.1
     mag_dequant: float = 0.01
+    input_noise: float = 0.1
 
 
 @dataclass

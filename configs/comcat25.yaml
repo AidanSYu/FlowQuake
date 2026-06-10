@@ -9,13 +9,15 @@ data:
   test_end: "2020-01-17"
 
 model:
-  d_model: 256
-  n_layers: 6
-  d_state: 64
-  n_heads: 8
+  # Small on purpose: 70k training events; larger encoders memorize the
+  # catalog (val NLL collapse) before learning transferable structure.
+  d_model: 96
+  n_layers: 4
+  d_state: 32
+  n_heads: 6
   expand: 2
   chunk: 64
-  flow_hidden: 256
+  flow_hidden: 96
   flow_layers: 3
   loss_weights: [1.0, 1.0, 0.5]
   # KDE-style bandwidth floors (normalized units) per head [time, space, mag]:
@@ -23,13 +25,14 @@ model:
   sigma_min: [0.02, 0.01, 0.05]
   dropout: 0.1
   mag_dequant: 0.01   # uniform dequantization over the raw 0.01-mag grid
+  input_noise: 0.1    # fresh history jitter per visit (anti-fingerprint)
 
 train:
   window: 2048
   burn_in: 256
   batch_size: 8
   steps: 20000
-  lr: 3.0e-4
+  lr: 1.0e-4
   weight_decay: 0.03
   warmup: 500
   grad_clip: 1.0
@@ -37,5 +40,5 @@ train:
   val_every: 250
   val_events: 4096
   val_ode_steps: 32
-  patience: 12
+  patience: 16
   out_dir: runs/comcat25
