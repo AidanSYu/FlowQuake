@@ -53,6 +53,14 @@ def simulate_daily_counts(
                cc.expand(n_sims, -1, -1).contiguous()) for st, cc in states]
     h_cur = h_last.expand(n_sims, -1).contiguous()
     t_last = torch.full((n_sims,), float(cat.t_days[n_hist - 1]), device=device)
+    tok_last = tokens[0, -1].expand(n_sims, -1).contiguous()
+    # Recent event times (most recent first) for recency features.
+    max_lag = 64
+    hist_times = cat.t_days[max(0, n_hist - max_lag): n_hist][::-1].copy()
+    t_buf = torch.as_tensor(hist_times, device=device, dtype=torch.float64)
+    if len(t_buf) < max_lag:
+        t_buf = torch.cat([t_buf, t_buf[-1:].expand(max_lag - len(t_buf))])
+    t_buf = t_buf.unsqueeze(0).expand(n_sims, -1).contiguous()
 
     counts = torch.zeros(n_sims, dtype=torch.long, device=device)
     active = torch.ones(n_sims, dtype=torch.bool, device=device)
@@ -61,7 +69,7 @@ def simulate_daily_counts(
     for _ in range(MAX_EVENTS_PER_DAY):
         if not active.any():
             break
-        tau, x, y, m, _ = model.sample_next(h_cur, steps=sample_steps)
+        tau, x, y, m, _ = model.sample_next(h_cur, tok_last, steps=sample_steps)
         if first:
             # The first continuation event must land after the day start:
             # rejection-sample the truncated conditional (we observed no
@@ -70,7 +78,7 @@ def simulate_daily_counts(
             for _r in range(MAX_REJECTION_ROUNDS):
                 if not need.any():
                     break
-                tau2, x2, y2, m2, _ = model.sample_next(h_cur, steps=sample_steps)
+                tau2, x2, y2, m2, _ = model.sample_next(h_cur, tok_last, steps=sample_steps)
                 take = need & (t_last + tau2 >= day_start_days)
                 tau = torch.where(take, tau2, tau)
                 x = torch.where(take, x2, x)
@@ -89,10 +97,14 @@ def simulate_daily_counts(
 
         # Append the sampled event and advance the encoder one step.
         m = torch.clamp(m, min=model.stats["mcut"])
-        feat = model.normalize_token(torch.log(torch.clamp(tau, min=1e-7)), x, y, m)
+        feat = model.build_token(tau, x, y, m, t_next.double(), t_buf).to(h_cur.dtype)
         h_new, new_states = model.encoder.step(feat, states)
         upd = active.view(-1, 1)
         h_cur = torch.where(upd, h_new, h_cur)
+        tok_last = torch.where(upd, feat, tok_last)
+        t_buf = torch.where(
+            upd, torch.cat([t_next.double().unsqueeze(1), t_buf[:, :-1]], dim=1), t_buf
+        )
         states = [
             (torch.where(active.view(-1, 1, 1, 1), s2, s1),
              torch.where(active.view(-1, 1, 1), c2, c1))

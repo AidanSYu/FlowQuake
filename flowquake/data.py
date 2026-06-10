@@ -23,6 +23,19 @@ from torch.utils.data import Dataset
 
 SECONDS_PER_DAY = 86400.0
 TAU_FLOOR_DAYS = 1e-7  # ~9 ms; catalog's smallest nonzero gap is ~5e-8 d
+RECENCY_LAGS = (1, 2, 4, 8, 16, 32, 64)  # Hawkes-style order statistics
+
+
+def recency_matrix(t_days: np.ndarray) -> np.ndarray:
+    """log(t_i - t_{i-k}) for k in RECENCY_LAGS: the elapsed-time order
+    statistics an Omori/Hawkes intensity is built from. Early indices clamp
+    to the first event (they sit in the auxiliary era, never targets)."""
+    E = len(t_days)
+    out = np.empty((E, len(RECENCY_LAGS)))
+    for j, k in enumerate(RECENCY_LAGS):
+        prev = np.concatenate([np.full(k, t_days[0]), t_days[:-k]]) if k < E else np.full(E, t_days[0])
+        out[:, j] = np.log(np.clip(t_days - prev, TAU_FLOOR_DAYS, None))
+    return out
 
 
 @dataclass
@@ -79,13 +92,24 @@ def load_catalog(
         stats[f"{name}_mean"] = float(arr[fit].mean())
         stats[f"{name}_std"] = float(arr[fit].std() + 1e-8)
 
+    rec = recency_matrix(t_days)
+    stats["rec_mean"] = rec[fit].mean(axis=0).tolist()
+    stats["rec_std"] = (rec[fit].std(axis=0) + 1e-8).tolist()
+    rec_n = (rec - np.asarray(stats["rec_mean"])) / np.asarray(stats["rec_std"])
+
     raw = np.stack([log_tau, x, y, m], axis=1)
-    feats = np.stack(
+    feats = np.concatenate(
         [
-            (log_tau - stats["log_tau_mean"]) / stats["log_tau_std"],
-            (x - stats["x_mean"]) / stats["x_std"],
-            (y - stats["y_mean"]) / stats["y_std"],
-            (m - stats["mag_mean"]) / stats["mag_std"],
+            np.stack(
+                [
+                    (log_tau - stats["log_tau_mean"]) / stats["log_tau_std"],
+                    (x - stats["x_mean"]) / stats["x_std"],
+                    (y - stats["y_mean"]) / stats["y_std"],
+                    (m - stats["mag_mean"]) / stats["mag_std"],
+                ],
+                axis=1,
+            ),
+            rec_n,
         ],
         axis=1,
     )
@@ -145,7 +169,7 @@ class CropDataset(Dataset):
         mask = torch.from_numpy(self.next_target[sl].copy())
         mask[: self.burn_in] = False
         mask[-1] = False  # last position has no in-crop successor
-        target = self.cat.feats[a + 1 : b + 1]
+        target = self.cat.feats[a + 1 : b + 1, :4]
         if target.shape[0] < tokens.shape[0]:  # crop touching catalog end
             pad = tokens.shape[0] - target.shape[0]
             target = torch.cat([target, torch.zeros(pad, 4)], dim=0)
@@ -163,6 +187,6 @@ def full_sequence_batch(cat: CatalogTensors, which: str):
     nxt = np.zeros(cat.n_events, dtype=bool)
     nxt[:-1] = tgt[1:]
     tokens = cat.feats.unsqueeze(0)
-    target = torch.cat([cat.feats[1:], torch.zeros(1, 4)], dim=0).unsqueeze(0)
+    target = torch.cat([cat.feats[1:, :4], torch.zeros(1, 4)], dim=0).unsqueeze(0)
     mask = torch.from_numpy(nxt).unsqueeze(0)
     return tokens, target, mask

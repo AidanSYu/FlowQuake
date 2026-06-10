@@ -17,8 +17,11 @@ import math
 import torch
 import torch.nn as nn
 
+from .data import RECENCY_LAGS, TAU_FLOOR_DAYS
 from .flow import CondFlow
 from .ssm import SSMEncoder
+
+D_IN = 4 + len(RECENCY_LAGS)  # [log_tau, x, y, m] + recency order statistics
 
 
 class FlowQuakeTPP(nn.Module):
@@ -41,15 +44,20 @@ class FlowQuakeTPP(nn.Module):
     ):
         super().__init__()
         self.encoder = SSMEncoder(
-            d_in=4, d_model=d_model, n_layers=n_layers, d_state=d_state,
+            d_in=D_IN, d_model=d_model, n_layers=n_layers, d_state=d_state,
             n_heads=n_heads, expand=expand, chunk=chunk,
         )
         st, ss, sm = sigma_min
-        self.head_t = CondFlow(1, cond_dim=d_model, hidden=flow_hidden,
+        # Heads condition on [h, current clean token] — the token carries the
+        # previous event's absolute location and the Hawkes-style recency
+        # statistics directly, so the heads need not re-derive them from h.
+        # Spatial head models the OFFSET from the previous event (ETAS-style
+        # triggering kernel).
+        self.head_t = CondFlow(1, cond_dim=d_model + D_IN, hidden=flow_hidden,
                                n_layers=flow_layers, sigma_min=st, dropout=dropout)
-        self.head_s = CondFlow(2, cond_dim=d_model + 1, hidden=flow_hidden,
+        self.head_s = CondFlow(2, cond_dim=d_model + D_IN + 1, hidden=flow_hidden,
                                n_layers=flow_layers, sigma_min=ss, dropout=dropout)
-        self.head_m = CondFlow(1, cond_dim=d_model + 3, hidden=flow_hidden,
+        self.head_m = CondFlow(1, cond_dim=d_model + D_IN + 3, hidden=flow_hidden,
                                n_layers=flow_layers, sigma_min=sm, dropout=dropout)
         self.h_drop = nn.Dropout(dropout)
         self.mag_dequant = mag_dequant
@@ -61,23 +69,26 @@ class FlowQuakeTPP(nn.Module):
 
     def fm_losses(self, tokens: torch.Tensor, target: torch.Tensor, mask: torch.Tensor):
         """tokens/target: (B, W, 4); mask: (B, W) bool over prediction positions."""
+        enc_in = tokens
         if self.training and self.input_noise > 0:
             # Fresh history jitter every visit: the encoder state cannot
             # become a unique fingerprint of catalog position, which is the
             # memorization channel for the heads.
-            tokens = tokens + self.input_noise * torch.randn_like(tokens)
-        h = self.encoder(tokens)
-        h = self.h_drop(h[mask])  # (K, d_model)
-        tgt = target[mask]        # (K, 4) normalized [log_tau, x, y, m]
+            enc_in = tokens + self.input_noise * torch.randn_like(tokens)
+        h = self.encoder(enc_in)
+        tok = tokens[mask]           # clean current token (K, D_IN)
+        cond = torch.cat([self.h_drop(h[mask]), tok], dim=-1)
+        s_last = tok[:, 1:3]         # absolute prev location (normalized)
+        tgt = target[mask]           # (K, 4) normalized [log_tau, x, y, m]
         u_t = tgt[:, 0:1]
-        u_s = tgt[:, 1:3]
+        u_s = tgt[:, 1:3] - s_last   # spatial offset target
         u_m = tgt[:, 3:4]
         if self.training and self.mag_dequant > 0:
             jitter = (torch.rand_like(u_m) - 0.5) * self.mag_dequant / self.stats["mag_std"]
             u_m = u_m + jitter
-        loss_t = self.head_t.fm_loss(u_t, h)
-        loss_s = self.head_s.fm_loss(u_s, torch.cat([h, u_t], dim=-1))
-        loss_m = self.head_m.fm_loss(u_m, torch.cat([h, u_t, u_s], dim=-1))
+        loss_t = self.head_t.fm_loss(u_t, cond)
+        loss_s = self.head_s.fm_loss(u_s, torch.cat([cond, u_t], dim=-1))
+        loss_m = self.head_m.fm_loss(u_m, torch.cat([cond, u_t, u_s], dim=-1))
         wt, ws, wm = self.loss_weights
         total = wt * loss_t + ws * loss_s + wm * loss_m
         return total, {"loss_t": loss_t.item(), "loss_s": loss_s.item(), "loss_m": loss_m.item()}
@@ -108,16 +119,19 @@ class FlowQuakeTPP(nn.Module):
         """Per-event tll/sll/mll (physical units) at masked positions."""
         st = self.stats
         h_all = self.encode_full(tokens, segment=segment)
-        h = h_all[mask]
+        cond_all = torch.cat([h_all[mask], tokens[mask]], dim=-1)
+        s_last_all = tokens[mask][:, 1:3]
         tgt = target[mask]
         tll, sll, mll = [], [], []
-        for i in range(0, h.shape[0], event_chunk):
-            hs = h[i : i + event_chunk]
+        for i in range(0, cond_all.shape[0], event_chunk):
+            cs = cond_all[i : i + event_chunk]
             ts = tgt[i : i + event_chunk]
-            u_t, u_s, u_m = ts[:, 0:1], ts[:, 1:3], ts[:, 3:4]
-            lp_t = self.head_t.log_prob(u_t, hs, steps=steps)
-            lp_s = self.head_s.log_prob(u_s, torch.cat([hs, u_t], dim=-1), steps=steps)
-            lp_m = self.head_m.log_prob(u_m, torch.cat([hs, u_t, u_s], dim=-1), steps=steps)
+            sl = s_last_all[i : i + event_chunk]
+            u_t, u_m = ts[:, 0:1], ts[:, 3:4]
+            u_s = ts[:, 1:3] - sl  # offset target; translation has unit Jacobian
+            lp_t = self.head_t.log_prob(u_t, cs, steps=steps)
+            lp_s = self.head_s.log_prob(u_s, torch.cat([cs, u_t], dim=-1), steps=steps)
+            lp_m = self.head_m.log_prob(u_m, torch.cat([cs, u_t, u_s], dim=-1), steps=steps)
             # Jacobian corrections to physical units.
             log_tau = ts[:, 0] * st["log_tau_std"] + st["log_tau_mean"]
             tll.append(lp_t - math.log(st["log_tau_std"]) - log_tau)
@@ -132,27 +146,46 @@ class FlowQuakeTPP(nn.Module):
     # --- simulation -------------------------------------------------------
 
     @torch.no_grad()
-    def sample_next(self, h: torch.Tensor, steps: int = 24):
-        """Sample (tau_days, x_km, y_km, mag) for the next event given h (B, d)."""
-        st = self.stats
-        u_t = self.head_t.sample(h, steps=steps)
-        u_s = self.head_s.sample(torch.cat([h, u_t], dim=-1), steps=steps)
-        u_m = self.head_m.sample(torch.cat([h, u_t, u_s], dim=-1), steps=steps)
-        tau = torch.exp(u_t[:, 0] * st["log_tau_std"] + st["log_tau_mean"])
-        x = u_s[:, 0] * st["x_std"] + st["x_mean"]
-        y = u_s[:, 1] * st["y_std"] + st["y_mean"]
-        m = u_m[:, 0] * st["mag_std"] + st["mag_mean"]
-        return tau, x, y, m, (u_t, u_s, u_m)
+    def sample_next(self, h: torch.Tensor, token_last: torch.Tensor, steps: int = 24):
+        """Sample (tau_days, x_km, y_km, mag) for the next event.
 
-    def normalize_token(self, log_tau, x, y, m):
-        """Physical next-event attributes -> normalized token (B, 4)."""
+        h: (B, d_model); token_last: (B, D_IN) current clean token (its [1:3]
+        slice is the previous event's normalized absolute location).
+        """
         st = self.stats
-        return torch.stack(
+        cond = torch.cat([h, token_last], dim=-1)
+        s_last = token_last[:, 1:3]
+        u_t = self.head_t.sample(cond, steps=steps)
+        u_s = self.head_s.sample(torch.cat([cond, u_t], dim=-1), steps=steps)
+        u_m = self.head_m.sample(torch.cat([cond, u_t, u_s], dim=-1), steps=steps)
+        abs_s = u_s + s_last
+        tau = torch.exp(u_t[:, 0] * st["log_tau_std"] + st["log_tau_mean"])
+        x = abs_s[:, 0] * st["x_std"] + st["x_mean"]
+        y = abs_s[:, 1] * st["y_std"] + st["y_mean"]
+        m = u_m[:, 0] * st["mag_std"] + st["mag_mean"]
+        return tau, x, y, m, (u_t, abs_s, u_m)
+
+    def build_token(self, tau_days, x, y, m, t_next, t_buf):
+        """Physical next-event attributes -> normalized token (B, D_IN).
+
+        t_next: (B,) absolute event time in days; t_buf: (B, >=max_lag) recent
+        event times, most recent first (NOT including this event).
+        """
+        st = self.stats
+        core = torch.stack(
             [
-                (log_tau - st["log_tau_mean"]) / st["log_tau_std"],
+                (torch.log(torch.clamp(tau_days, min=TAU_FLOOR_DAYS)) - st["log_tau_mean"])
+                / st["log_tau_std"],
                 (x - st["x_mean"]) / st["x_std"],
                 (y - st["y_mean"]) / st["y_std"],
                 (m - st["mag_mean"]) / st["mag_std"],
             ],
             dim=-1,
         )
+        rec_mean = torch.as_tensor(st["rec_mean"], device=core.device, dtype=core.dtype)
+        rec_std = torch.as_tensor(st["rec_std"], device=core.device, dtype=core.dtype)
+        recs = []
+        for j, k in enumerate(RECENCY_LAGS):
+            dtk = torch.clamp(t_next - t_buf[:, k - 1], min=TAU_FLOOR_DAYS)
+            recs.append((torch.log(dtk) - rec_mean[j].double()) / rec_std[j].double())
+        return torch.cat([core, torch.stack(recs, dim=-1).to(core.dtype)], dim=-1)
