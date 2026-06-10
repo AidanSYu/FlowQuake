@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+runs/
+reference/
+*.egg-info/
+.venv/
+.pytest_cache/
+_autostpp_tmp/
