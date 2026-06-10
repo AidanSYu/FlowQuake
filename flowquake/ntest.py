@@ -54,13 +54,20 @@ def simulate_daily_counts(
     h_cur = h_last.expand(n_sims, -1).contiguous()
     t_last = torch.full((n_sims,), float(cat.t_days[n_hist - 1]), device=device)
     tok_last = tokens[0, -1].expand(n_sims, -1).contiguous()
-    # Recent event times (most recent first) for recency features.
+    # Recent-event history buffers (most recent first, raw units).
     max_lag = 64
-    hist_times = cat.t_days[max(0, n_hist - max_lag): n_hist][::-1].copy()
-    t_buf = torch.as_tensor(hist_times, device=device, dtype=torch.float64)
-    if len(t_buf) < max_lag:
-        t_buf = torch.cat([t_buf, t_buf[-1:].expand(max_lag - len(t_buf))])
-    t_buf = t_buf.unsqueeze(0).expand(n_sims, -1).contiguous()
+    lo = max(0, n_hist - max_lag)
+
+    def _mk_buf(arr, dtype):
+        b = torch.as_tensor(arr[lo:n_hist][::-1].copy(), device=device, dtype=dtype)
+        if len(b) < max_lag:
+            b = torch.cat([b, b[-1:].expand(max_lag - len(b))])
+        return b.unsqueeze(0).expand(n_sims, -1).contiguous()
+
+    t_buf = _mk_buf(cat.t_days, torch.float64)
+    x_buf = _mk_buf(cat.raw[:, 1].numpy(), torch.float32)
+    y_buf = _mk_buf(cat.raw[:, 2].numpy(), torch.float32)
+    m_buf = _mk_buf(cat.raw[:, 3].numpy(), torch.float32)
 
     counts = torch.zeros(n_sims, dtype=torch.long, device=device)
     active = torch.ones(n_sims, dtype=torch.bool, device=device)
@@ -97,14 +104,23 @@ def simulate_daily_counts(
 
         # Append the sampled event and advance the encoder one step.
         m = torch.clamp(m, min=model.stats["mcut"])
-        feat = model.build_token(tau, x, y, m, t_next.double(), t_buf).to(h_cur.dtype)
+        feat = model.build_token(
+            tau, x, y, m, t_next.double(), (t_buf, x_buf, y_buf, m_buf)
+        ).to(h_cur.dtype)
         h_new, new_states = model.encoder.step(feat, states)
         upd = active.view(-1, 1)
         h_cur = torch.where(upd, h_new, h_cur)
         tok_last = torch.where(upd, feat, tok_last)
-        t_buf = torch.where(
-            upd, torch.cat([t_next.double().unsqueeze(1), t_buf[:, :-1]], dim=1), t_buf
-        )
+
+        def _push(buf, val):
+            return torch.where(
+                upd, torch.cat([val.unsqueeze(1).to(buf.dtype), buf[:, :-1]], dim=1), buf
+            )
+
+        t_buf = _push(t_buf, t_next.double())
+        x_buf = _push(x_buf, x)
+        y_buf = _push(y_buf, y)
+        m_buf = _push(m_buf, m)
         states = [
             (torch.where(active.view(-1, 1, 1, 1), s2, s1),
              torch.where(active.view(-1, 1, 1), c2, c1))

@@ -62,6 +62,8 @@ def main(argv=None):
     ap.add_argument("--steps", type=int, default=None)
     ap.add_argument("--out", type=str, default=None)
     ap.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
+    ap.add_argument("--eval-after", action="store_true",
+                    help="run the full test evaluation on ckpt_best when done")
     args = ap.parse_args(argv)
 
     cfg = Config.load(args.config)
@@ -152,6 +154,11 @@ def main(argv=None):
 
     metrics_f.close()
     print(f"done in {time.time() - t0:.0f}s; best val nll {best_nll:.4f}")
+
+    if args.eval_after and (out_dir / "ckpt_best.pt").exists():
+        from . import evaluate as eval_mod
+        eval_mod.main([str(out_dir / "ckpt_best.pt"), "--steps", "64",
+                       "--device", args.device])
 
 
 if __name__ == "__main__":

@@ -17,11 +17,11 @@ import math
 import torch
 import torch.nn as nn
 
-from .data import RECENCY_LAGS, TAU_FLOOR_DAYS
+from .data import RECENCY_LAGS, TAU_FLOOR_DAYS, TOKEN_DIM
 from .flow import CondFlow
 from .ssm import SSMEncoder
 
-D_IN = 4 + len(RECENCY_LAGS)  # [log_tau, x, y, m] + recency order statistics
+D_IN = TOKEN_DIM  # [log_tau, x, y, m] + per-lag [log dt, dx, dy, mag]
 
 
 class FlowQuakeTPP(nn.Module):
@@ -165,13 +165,15 @@ class FlowQuakeTPP(nn.Module):
         m = u_m[:, 0] * st["mag_std"] + st["mag_mean"]
         return tau, x, y, m, (u_t, abs_s, u_m)
 
-    def build_token(self, tau_days, x, y, m, t_next, t_buf):
+    def build_token(self, tau_days, x, y, m, t_next, bufs):
         """Physical next-event attributes -> normalized token (B, D_IN).
 
-        t_next: (B,) absolute event time in days; t_buf: (B, >=max_lag) recent
-        event times, most recent first (NOT including this event).
+        t_next: (B,) absolute time in days. bufs = (t_buf, x_buf, y_buf,
+        m_buf): recent-event history per lane, most recent first, raw units,
+        NOT including this event. t_buf is float64.
         """
         st = self.stats
+        t_buf, x_buf, y_buf, m_buf = bufs
         core = torch.stack(
             [
                 (torch.log(torch.clamp(tau_days, min=TAU_FLOOR_DAYS)) - st["log_tau_mean"])
@@ -187,5 +189,9 @@ class FlowQuakeTPP(nn.Module):
         recs = []
         for j, k in enumerate(RECENCY_LAGS):
             dtk = torch.clamp(t_next - t_buf[:, k - 1], min=TAU_FLOOR_DAYS)
-            recs.append((torch.log(dtk) - rec_mean[j].double()) / rec_std[j].double())
-        return torch.cat([core, torch.stack(recs, dim=-1).to(core.dtype)], dim=-1)
+            recs.append(torch.log(dtk).to(core.dtype))
+            recs.append(x - x_buf[:, k - 1])
+            recs.append(y - y_buf[:, k - 1])
+            recs.append(m_buf[:, k - 1])
+        rec = (torch.stack(recs, dim=-1) - rec_mean) / rec_std
+        return torch.cat([core, rec], dim=-1)

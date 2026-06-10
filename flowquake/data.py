@@ -24,18 +24,29 @@ from torch.utils.data import Dataset
 SECONDS_PER_DAY = 86400.0
 TAU_FLOOR_DAYS = 1e-7  # ~9 ms; catalog's smallest nonzero gap is ~5e-8 d
 RECENCY_LAGS = (1, 2, 4, 8, 16, 32, 64)  # Hawkes-style order statistics
+# Per-event token width: [log_tau, x, y, m] + per-lag [log dt, dx, dy, mag].
+TOKEN_DIM = 4 + 4 * len(RECENCY_LAGS)
 
 
-def recency_matrix(t_days: np.ndarray) -> np.ndarray:
-    """log(t_i - t_{i-k}) for k in RECENCY_LAGS: the elapsed-time order
-    statistics an Omori/Hawkes intensity is built from. Early indices clamp
-    to the first event (they sit in the auxiliary era, never targets)."""
-    E = len(t_days)
-    out = np.empty((E, len(RECENCY_LAGS)))
-    for j, k in enumerate(RECENCY_LAGS):
-        prev = np.concatenate([np.full(k, t_days[0]), t_days[:-k]]) if k < E else np.full(E, t_days[0])
-        out[:, j] = np.log(np.clip(t_days - prev, TAU_FLOOR_DAYS, None))
-    return out
+def _lagged(arr: np.ndarray, k: int) -> np.ndarray:
+    """arr shifted by k with clamp-to-first (early rows are aux-era only)."""
+    if k >= len(arr):
+        return np.full_like(arr, arr[0])
+    return np.concatenate([np.full(k, arr[0]), arr[:-k]])
+
+
+def recency_matrix(t_days: np.ndarray, x: np.ndarray, y: np.ndarray,
+                   m: np.ndarray) -> np.ndarray:
+    """ETAS-kernel raw material per event i and lag k in RECENCY_LAGS:
+    log(t_i - t_{i-k}) (Omori), x_i - x_{i-k}, y_i - y_{i-k} (where recent
+    activity is, relative), and m_{i-k} (productivity). Heads see the next
+    event mostly lands near one of the recent events; with displacements in
+    the conditioning, the offset flow can route mass to any of them."""
+    cols = []
+    for k in RECENCY_LAGS:
+        dt = np.clip(t_days - _lagged(t_days, k), TAU_FLOOR_DAYS, None)
+        cols += [np.log(dt), x - _lagged(x, k), y - _lagged(y, k), _lagged(m, k)]
+    return np.stack(cols, axis=1)
 
 
 @dataclass
@@ -92,7 +103,7 @@ def load_catalog(
         stats[f"{name}_mean"] = float(arr[fit].mean())
         stats[f"{name}_std"] = float(arr[fit].std() + 1e-8)
 
-    rec = recency_matrix(t_days)
+    rec = recency_matrix(t_days, x, y, m)
     stats["rec_mean"] = rec[fit].mean(axis=0).tolist()
     stats["rec_std"] = (rec[fit].std(axis=0) + 1e-8).tolist()
     rec_n = (rec - np.asarray(stats["rec_mean"])) / np.asarray(stats["rec_std"])
