@@ -28,6 +28,9 @@ def make_model(cfg: Config, stats: dict) -> FlowQuakeTPP:
         n_heads=m.n_heads, expand=m.expand, chunk=m.chunk,
         flow_hidden=m.flow_hidden, flow_layers=m.flow_layers,
         stats=stats, loss_weights=tuple(m.loss_weights),
+        sigma_min=tuple(getattr(m, "sigma_min", (0.0, 0.0, 0.0))),
+        dropout=getattr(m, "dropout", 0.0),
+        mag_dequant=getattr(m, "mag_dequant", 0.0),
     )
 
 

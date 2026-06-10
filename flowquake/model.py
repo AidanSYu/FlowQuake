@@ -34,15 +34,24 @@ class FlowQuakeTPP(nn.Module):
         flow_layers: int = 3,
         stats: dict | None = None,
         loss_weights: tuple[float, float, float] = (1.0, 1.0, 0.5),
+        sigma_min: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        dropout: float = 0.0,
+        mag_dequant: float = 0.0,  # raw magnitude units (catalog grid ~0.01)
     ):
         super().__init__()
         self.encoder = SSMEncoder(
             d_in=4, d_model=d_model, n_layers=n_layers, d_state=d_state,
             n_heads=n_heads, expand=expand, chunk=chunk,
         )
-        self.head_t = CondFlow(1, cond_dim=d_model, hidden=flow_hidden, n_layers=flow_layers)
-        self.head_s = CondFlow(2, cond_dim=d_model + 1, hidden=flow_hidden, n_layers=flow_layers)
-        self.head_m = CondFlow(1, cond_dim=d_model + 3, hidden=flow_hidden, n_layers=flow_layers)
+        st, ss, sm = sigma_min
+        self.head_t = CondFlow(1, cond_dim=d_model, hidden=flow_hidden,
+                               n_layers=flow_layers, sigma_min=st, dropout=dropout)
+        self.head_s = CondFlow(2, cond_dim=d_model + 1, hidden=flow_hidden,
+                               n_layers=flow_layers, sigma_min=ss, dropout=dropout)
+        self.head_m = CondFlow(1, cond_dim=d_model + 3, hidden=flow_hidden,
+                               n_layers=flow_layers, sigma_min=sm, dropout=dropout)
+        self.h_drop = nn.Dropout(dropout)
+        self.mag_dequant = mag_dequant
         self.loss_weights = loss_weights
         self.stats = dict(stats or {})
 
@@ -51,11 +60,14 @@ class FlowQuakeTPP(nn.Module):
     def fm_losses(self, tokens: torch.Tensor, target: torch.Tensor, mask: torch.Tensor):
         """tokens/target: (B, W, 4); mask: (B, W) bool over prediction positions."""
         h = self.encoder(tokens)
-        h = h[mask]            # (K, d_model)
-        tgt = target[mask]     # (K, 4) normalized [log_tau, x, y, m]
+        h = self.h_drop(h[mask])  # (K, d_model)
+        tgt = target[mask]        # (K, 4) normalized [log_tau, x, y, m]
         u_t = tgt[:, 0:1]
         u_s = tgt[:, 1:3]
         u_m = tgt[:, 3:4]
+        if self.training and self.mag_dequant > 0:
+            jitter = (torch.rand_like(u_m) - 0.5) * self.mag_dequant / self.stats["mag_std"]
+            u_m = u_m + jitter
         loss_t = self.head_t.fm_loss(u_t, h)
         loss_s = self.head_s.fm_loss(u_s, torch.cat([h, u_t], dim=-1))
         loss_m = self.head_m.fm_loss(u_m, torch.cat([h, u_t, u_s], dim=-1))

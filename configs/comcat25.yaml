@@ -18,6 +18,11 @@ model:
   flow_hidden: 256
   flow_layers: 3
   loss_weights: [1.0, 1.0, 0.5]
+  # KDE-style bandwidth floors (normalized units) per head [time, space, mag]:
+  # prevent density collapse onto (discretized) training targets.
+  sigma_min: [0.02, 0.01, 0.05]
+  dropout: 0.1
+  mag_dequant: 0.01   # uniform dequantization over the raw 0.01-mag grid
 
 train:
   window: 2048
@@ -25,12 +30,12 @@ train:
   batch_size: 8
   steps: 20000
   lr: 3.0e-4
-  weight_decay: 0.01
+  weight_decay: 0.03
   warmup: 500
   grad_clip: 1.0
   seed: 1553
-  val_every: 1000
+  val_every: 250
   val_events: 4096
   val_ode_steps: 32
-  patience: 8
+  patience: 12
   out_dir: runs/comcat25

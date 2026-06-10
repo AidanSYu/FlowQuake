@@ -36,16 +36,25 @@ class TimeEmbed(nn.Module):
 
 
 class CondFlow(nn.Module):
-    """Conditional rectified-flow density model for a d-dim target."""
+    """Conditional rectified-flow density model for a d-dim target.
 
-    def __init__(self, dim: int, cond_dim: int, hidden: int = 256, n_layers: int = 3):
+    sigma_min > 0 uses the path z_t = (1 - (1 - sigma_min) t) z0 + t u, so the
+    modeled density is the data convolved with N(0, sigma_min^2 I): a KDE-style
+    bandwidth floor that prevents collapse onto (discretized) training targets.
+    """
+
+    def __init__(self, dim: int, cond_dim: int, hidden: int = 256, n_layers: int = 3,
+                 sigma_min: float = 0.0, dropout: float = 0.0):
         super().__init__()
         self.dim = dim
+        self.sigma_min = sigma_min
         self.temb = TimeEmbed()
         d_in = dim + self.temb.dim + cond_dim
         layers: list[nn.Module] = []
         for i in range(n_layers):
             layers += [nn.Linear(d_in if i == 0 else hidden, hidden), nn.SiLU()]
+            if dropout > 0:
+                layers += [nn.Dropout(dropout)]
         layers += [nn.Linear(hidden, dim)]
         self.net = nn.Sequential(*layers)
         # Near-zero initial velocity field keeps early training stable.
@@ -59,13 +68,14 @@ class CondFlow(nn.Module):
         return self.net(torch.cat([z, self.temb(t), cond], dim=-1))
 
     def fm_loss(self, u: torch.Tensor, cond: torch.Tensor) -> torch.Tensor:
-        """Mean rectified-flow matching loss. u: (B, d), cond: (B, c)."""
+        """Mean conditional flow-matching loss. u: (B, d), cond: (B, c)."""
         B = u.shape[0]
+        s = self.sigma_min
         t = torch.rand(B, device=u.device, dtype=u.dtype)
         z0 = torch.randn_like(u)
-        zt = (1.0 - t.unsqueeze(-1)) * z0 + t.unsqueeze(-1) * u
+        zt = (1.0 - (1.0 - s) * t.unsqueeze(-1)) * z0 + t.unsqueeze(-1) * u
         v = self.velocity(zt, t, cond)
-        return F.mse_loss(v, u - z0)
+        return F.mse_loss(v, u - (1.0 - s) * z0)
 
     @torch.no_grad()
     def sample(self, cond: torch.Tensor, steps: int = 32) -> torch.Tensor:
