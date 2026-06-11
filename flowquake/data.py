@@ -26,10 +26,13 @@ TAU_FLOOR_DAYS = 1e-7  # ~9 ms; catalog's smallest nonzero gap is ~5e-8 d
 RECENCY_LAGS = (1, 2, 4, 8, 16, 32, 64)  # Hawkes-style order statistics
 # Per-event token width: [log_tau, x, y, m] + per-lag [log dt, dx, dy, mag].
 TOKEN_DIM = 4 + 4 * len(RECENCY_LAGS)
+LAST_K = 32  # kernel-mixture components: the last K event locations
 
 
 def _lagged(arr: np.ndarray, k: int) -> np.ndarray:
     """arr shifted by k with clamp-to-first (early rows are aux-era only)."""
+    if k == 0:
+        return arr
     if k >= len(arr):
         return np.full_like(arr, arr[0])
     return np.concatenate([np.full(k, arr[0]), arr[:-k]])
@@ -54,8 +57,10 @@ class CatalogTensors:
     """Whole-catalog arrays plus split masks and normalization stats."""
 
     t_days: np.ndarray        # (E,) float64, days since first event
-    feats: torch.Tensor       # (E, 4) float32 normalized tokens
+    feats: torch.Tensor       # (E, TOKEN_DIM) float32 normalized tokens
     raw: torch.Tensor         # (E, 4) float32 [log_tau, x, y, mag] unnormalized
+    lastk: torch.Tensor       # (E, LAST_K, 4) float32 raw [x, y, log_dt, m] of
+                              # events i, i-1, .., i-K+1 (mixture components)
     target_train: np.ndarray  # (E,) bool: event is a train-period target
     target_val: np.ndarray
     target_test: np.ndarray
@@ -108,6 +113,19 @@ def load_catalog(
     stats["rec_std"] = (rec[fit].std(axis=0) + 1e-8).tolist()
     rec_n = (rec - np.asarray(stats["rec_mean"])) / np.asarray(stats["rec_std"])
 
+    # Mixture components: raw [x, y, log_dt, m] of events i, i-1, .., i-K+1.
+    lastk = np.empty((len(t_days), LAST_K, 4), dtype=np.float32)
+    for j in range(LAST_K):
+        lastk[:, j, 0] = _lagged(x, j)
+        lastk[:, j, 1] = _lagged(y, j)
+        lastk[:, j, 2] = np.log(np.clip(t_days - _lagged(t_days, j), TAU_FLOOR_DAYS, None))
+        lastk[:, j, 3] = _lagged(m, j)
+
+    # Catalog bounding-box area (km^2) for the uniform background component.
+    stats["bg_area"] = float((x.max() - x.min() + 20.0) * (y.max() - y.min() + 20.0))
+    stats["bg_xmin"], stats["bg_ymin"] = float(x.min() - 10), float(y.min() - 10)
+    stats["bg_xmax"], stats["bg_ymax"] = float(x.max() + 10), float(y.max() + 10)
+
     raw = np.stack([log_tau, x, y, m], axis=1)
     feats = np.concatenate(
         [
@@ -129,6 +147,7 @@ def load_catalog(
         t_days=t_days,
         feats=torch.from_numpy(feats).float(),
         raw=torch.from_numpy(raw).float(),
+        lastk=torch.from_numpy(lastk),
         target_train=target_train,
         target_val=target_val,
         target_test=target_test,
@@ -181,11 +200,13 @@ class CropDataset(Dataset):
         mask[: self.burn_in] = False
         mask[-1] = False  # last position has no in-crop successor
         target = self.cat.feats[a + 1 : b + 1, :4]
+        raw_next = self.cat.raw[a + 1 : b + 1, 1:4]  # (x_km, y_km, mag)
         if target.shape[0] < tokens.shape[0]:  # crop touching catalog end
             pad = tokens.shape[0] - target.shape[0]
             target = torch.cat([target, torch.zeros(pad, 4)], dim=0)
+            raw_next = torch.cat([raw_next, torch.zeros(pad, 3)], dim=0)
             mask[-(pad + 1):] = False
-        return tokens, target, mask
+        return tokens, target, mask, self.cat.lastk[sl], raw_next
 
 
 def full_sequence_batch(cat: CatalogTensors, which: str):
@@ -199,5 +220,6 @@ def full_sequence_batch(cat: CatalogTensors, which: str):
     nxt[:-1] = tgt[1:]
     tokens = cat.feats.unsqueeze(0)
     target = torch.cat([cat.feats[1:, :4], torch.zeros(1, 4)], dim=0).unsqueeze(0)
+    raw_next = torch.cat([cat.raw[1:, 1:4], torch.zeros(1, 3)], dim=0).unsqueeze(0)
     mask = torch.from_numpy(nxt).unsqueeze(0)
-    return tokens, target, mask
+    return tokens, target, mask, cat.lastk.unsqueeze(0), raw_next

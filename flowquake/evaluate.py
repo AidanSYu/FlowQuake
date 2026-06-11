@@ -72,9 +72,10 @@ def main(argv=None):
     model = make_model(cfg, ckpt["stats"]).to(device).eval()
     model.load_state_dict(ckpt["model"])
 
-    tokens, target, mask = full_sequence_batch(cat, args.split)
+    tokens, target, mask, lastk, raw_next = full_sequence_batch(cat, args.split)
     out = model.log_likelihood(
-        tokens.to(device), target.to(device), mask.to(device), steps=args.steps
+        tokens.to(device), target.to(device), mask.to(device),
+        lastk.to(device), raw_next.to(device), steps=args.steps
     )
     tll = out["tll"].cpu().numpy()
     sll = out["sll"].cpu().numpy()

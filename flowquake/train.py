@@ -38,7 +38,7 @@ def make_model(cfg: Config, stats: dict) -> FlowQuakeTPP:
 @torch.no_grad()
 def validate(model, cat, device, n_events: int, ode_steps: int, seed: int = 0):
     """Subsampled val-set NLL (per-event, physical units)."""
-    tokens, target, mask = full_sequence_batch(cat, "val")
+    tokens, target, mask, lastk, raw_next = full_sequence_batch(cat, "val")
     idx = mask[0].nonzero(as_tuple=True)[0]
     if n_events and len(idx) > n_events:
         sel = torch.from_numpy(
@@ -48,7 +48,8 @@ def validate(model, cat, device, n_events: int, ode_steps: int, seed: int = 0):
         keep[idx[sel]] = True
         mask = keep.unsqueeze(0)
     out = model.log_likelihood(
-        tokens.to(device), target.to(device), mask.to(device), steps=ode_steps
+        tokens.to(device), target.to(device), mask.to(device),
+        lastk.to(device), raw_next.to(device), steps=ode_steps
     )
     tll = out["tll"].mean().item()
     sll = out["sll"].mean().item()
@@ -114,9 +115,8 @@ def main(argv=None):
     it = iter(dl)
 
     for step in range(1, tc.steps + 1):
-        tokens, target, mask = next(it)
-        tokens, target, mask = tokens.to(device), target.to(device), mask.to(device)
-        loss, parts = model.fm_losses(tokens, target, mask)
+        batch = [t.to(device) for t in next(it)]
+        loss, parts = model.fm_losses(*batch)
         opt.zero_grad(set_to_none=True)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), tc.grad_clip)

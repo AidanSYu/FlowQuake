@@ -43,7 +43,8 @@ def test_normalization_is_train_only(cat):
 
 def test_crop_alignment(cat):
     ds = CropDataset(cat, window=512, burn_in=64, n_crops=4, seed=1)
-    tokens, target, mask = ds[0]
+    tokens, target, mask, lastk, raw_next = ds[0]
+    assert lastk.shape == (512, 32, 4) and raw_next.shape == (512, 3)
     assert tokens.shape[0] == 512 and target.shape == (512, 4)
     assert not mask[:64].any()
     assert not mask[-1]
@@ -53,8 +54,12 @@ def test_crop_alignment(cat):
 
 
 def test_full_sequence_mask_shift(cat):
-    tokens, target, mask = full_sequence_batch(cat, "test")
+    tokens, target, mask, lastk, raw_next = full_sequence_batch(cat, "test")
     assert mask.sum().item() == 21889
+    # lastk component 0 at position i is event i itself; raw_next is event i+1
+    i = int(mask[0].nonzero()[0])
+    assert torch.allclose(lastk[0, i, 0, :2], cat.raw[i, 1:3])
+    assert torch.allclose(raw_next[0, i], cat.raw[i + 1, 1:4])
     idx = mask[0].nonzero(as_tuple=True)[0]
     # position i predicts event i+1, which must be a test target
     assert cat.target_test[(idx + 1).numpy()].all()

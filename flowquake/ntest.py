@@ -76,7 +76,9 @@ def simulate_daily_counts(
     for _ in range(MAX_EVENTS_PER_DAY):
         if not active.any():
             break
-        tau, x, y, m, _ = model.sample_next(h_cur, tok_last, steps=sample_steps)
+        bufs = (t_buf, x_buf, y_buf, m_buf)
+        lastk_lane = model.lastk_from_bufs(t_last.double(), bufs)
+        tau, x, y, m = model.sample_next(h_cur, tok_last, lastk_lane, steps=sample_steps)
         if first:
             # The first continuation event must land after the day start:
             # rejection-sample the truncated conditional (we observed no
@@ -85,7 +87,7 @@ def simulate_daily_counts(
             for _r in range(MAX_REJECTION_ROUNDS):
                 if not need.any():
                     break
-                tau2, x2, y2, m2, _ = model.sample_next(h_cur, tok_last, steps=sample_steps)
+                tau2, x2, y2, m2 = model.sample_next(h_cur, tok_last, lastk_lane, steps=sample_steps)
                 take = need & (t_last + tau2 >= day_start_days)
                 tau = torch.where(take, tau2, tau)
                 x = torch.where(take, x2, x)
