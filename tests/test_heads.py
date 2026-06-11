@@ -18,13 +18,26 @@ def test_kernel_mixture_normalizes():
     g = torch.linspace(-half, half, n)
     xx, yy = torch.meshgrid(g, g, indexing="ij")
     pts = torch.stack([xx.reshape(-1), yy.reshape(-1)], dim=-1)
+    cell = (2 * half / (n - 1)) ** 2
+
+    # With a uniform stand-in for the KDE map the full mixture must be ~1.
+    kde_uniform = torch.full((len(pts),), -torch.log(torch.tensor(area)))
     lp = head.log_prob(
+        pts, comp_xy.expand(len(pts), -1, -1), comp_feats.expand(len(pts), -1, -1),
+        cond.expand(len(pts), -1), bg_area=area, log_kde_at_s=kde_uniform,
+    )
+    integral = (lp.exp().sum() * cell).item()
+    assert abs(integral - 1.0) < 0.03, integral
+
+    # With the KDE component disabled, exactly its weight is missing.
+    log_w, _, _ = head._params(cond, comp_feats)
+    w_kde = log_w.exp()[0, -1].item()
+    lp2 = head.log_prob(
         pts, comp_xy.expand(len(pts), -1, -1), comp_feats.expand(len(pts), -1, -1),
         cond.expand(len(pts), -1), bg_area=area,
     )
-    cell = (2 * half / (n - 1)) ** 2
-    integral = lp.exp().sum() * cell
-    assert abs(integral.item() - 1.0) < 0.03, integral
+    integral2 = (lp2.exp().sum() * cell).item()
+    assert abs(integral2 - (1.0 - w_kde)) < 0.03, (integral2, w_kde)
 
 
 def test_kernel_mixture_rewards_proximity():
