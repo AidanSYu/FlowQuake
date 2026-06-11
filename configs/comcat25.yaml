@@ -29,7 +29,9 @@ model:
   # Phase A ("neural ETAS"): heads condition on relational features only;
   # the h channel proved to be a pure era-memorization vector (probe:
   # train sll -8.3 / val -15.2 with h). Phase B: h_bottleneck: 4.
-  h_bottleneck: 4
+  # h channel rejected twice (B: best-at-first-checkpoint again; encoder can
+  # amplify h_proj past fixed-sigma noise). Relational features only.
+  h_bottleneck: 0
   h_noise: 0.3
 
 train:

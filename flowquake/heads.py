@@ -50,9 +50,11 @@ class KernelMixtureHead(nn.Module):
         self.d_floor = d_floor_km
         self.q_floor = q_floor
         self.h_proj = nn.Linear(cond_dim, hidden)
-        # per-component scorer -> (logit, d_raw, q_raw)
+        # per-component scorer -> (logit, d_raw, q_raw, rho_raw, cos_raw, sin_raw)
+        # rho/theta give an area-preserving anisotropic kernel (axes d*rho,
+        # d/rho rotated by theta): fault-strike elongation.
         self.comp_mlp = nn.Sequential(
-            nn.Linear(hidden + 3, hidden), nn.SiLU(), nn.Linear(hidden, 3)
+            nn.Linear(hidden + 3, hidden), nn.SiLU(), nn.Linear(hidden, 6)
         )
         self.bg_logit = nn.Linear(cond_dim, 2)  # [uniform, kde-map]
         with torch.no_grad():
@@ -61,6 +63,8 @@ class KernelMixtureHead(nn.Module):
                 0.0,
                 math.log(math.exp(d_init_km - d_floor_km) - 1.0),
                 math.log(math.exp(q_init - q_floor) - 1.0),
+                -5.0,  # rho ~= 1: start isotropic
+                1.0, 0.0,
             ])
             self.bg_logit.weight.mul_(0.0)
             # each bg part starts at bg_frac/2 vs n_comp equal components
@@ -69,23 +73,35 @@ class KernelMixtureHead(nn.Module):
             )
 
     def _params(self, cond: torch.Tensor, comp_feats: torch.Tensor):
-        """Returns log-weights (B, K+2) [comps..., uniform, kde], d (B,K), q (B,K)."""
+        """Returns log_w (B,K+2) [comps..., uniform, kde], d, q, rho, theta (B,K)."""
         hp = F.silu(self.h_proj(cond)).unsqueeze(1).expand(-1, self.n_comp, -1)
-        out = self.comp_mlp(torch.cat([hp, comp_feats], dim=-1))  # (B, K, 3)
+        out = self.comp_mlp(torch.cat([hp, comp_feats], dim=-1))  # (B, K, 6)
         logits = torch.cat([out[..., 0], self.bg_logit(cond)], dim=-1)
         log_w = F.log_softmax(logits, dim=-1)
         d = self.d_floor + F.softplus(out[..., 1])
         q = self.q_floor + F.softplus(out[..., 2])
-        return log_w, d, q
+        rho = 1.0 + F.softplus(out[..., 3]).clamp(max=4.0)
+        theta = torch.atan2(out[..., 5], out[..., 4] + 1e-6)
+        return log_w, d, q, rho, theta
+
+    @staticmethod
+    def _mahal2(diff: torch.Tensor, d, rho, theta):
+        """(B,K) squared elliptical radius of diff (B,K,2); axes d*rho, d/rho."""
+        c, s = theta.cos(), theta.sin()
+        xr = diff[..., 0] * c + diff[..., 1] * s
+        yr = -diff[..., 0] * s + diff[..., 1] * c
+        return (xr / (d * rho)).pow(2) + (yr / (d / rho)).pow(2)
 
     def log_prob(self, s_km: torch.Tensor, comp_xy: torch.Tensor,
                  comp_feats: torch.Tensor, cond: torch.Tensor, bg_area: float,
                  log_kde_at_s: torch.Tensor | None = None):
         """s_km: (B, 2); comp_xy: (B, K, 2) centers (km); returns (B,) log f."""
-        log_w, d, q = self._params(cond, comp_feats)
-        r2 = (s_km.unsqueeze(1) - comp_xy).pow(2).sum(-1)          # (B, K)
+        log_w, d, q, rho, theta = self._params(cond, comp_feats)
+        diff = s_km.unsqueeze(1) - comp_xy                          # (B, K, 2)
+        u2 = self._mahal2(diff, d, rho, theta)
+        # area-preserving axes: sqrt(det M) = d^2, same normalizer as isotropic
         log_comp = (torch.log(q - 1.0) - math.log(math.pi) - 2.0 * torch.log(d)
-                    - q * torch.log1p(r2 / d.pow(2)))
+                    - q * torch.log1p(u2))
         log_uni = torch.full_like(log_w[:, :1], -math.log(bg_area))
         if log_kde_at_s is None:
             log_kde = torch.full_like(log_w[:, :1], -1e30)  # disabled
@@ -100,20 +116,23 @@ class KernelMixtureHead(nn.Module):
                cond: torch.Tensor, bg_box: tuple[float, float, float, float],
                kde_sampler=None):
         """Returns (B, 2) km. kde_sampler(n) -> (n, 2) km draws from the map."""
-        log_w, d, q = self._params(cond, comp_feats)
+        log_w, d, q, rho, theta = self._params(cond, comp_feats)
         w = log_w.exp()
         if kde_sampler is None:
             w[:, -1] = 0.0  # no kde map available
         choice = torch.multinomial(w, 1).squeeze(-1)               # (B,)
         idx = choice.clamp(max=self.n_comp - 1)
+        gather = lambda t: t.gather(1, idx.view(-1, 1)).squeeze(1)
         centers = comp_xy.gather(1, idx.view(-1, 1, 1).expand(-1, 1, 2)).squeeze(1)
-        dk = d.gather(1, idx.view(-1, 1)).squeeze(1)
-        qk = q.gather(1, idx.view(-1, 1)).squeeze(1)
-        # inverse-CDF radial draw: F(r) = 1 - (1 + r^2/d^2)^(1-q)
+        dk, qk, rk, tk = gather(d), gather(q), gather(rho), gather(theta)
+        # inverse-CDF elliptical-radius draw: F(u) = 1 - (1 + u^2)^(1-q)
         u = torch.rand_like(dk).clamp(1e-9, 1 - 1e-9)
-        r = dk * torch.sqrt(torch.pow(1.0 - u, 1.0 / (1.0 - qk)) - 1.0)
+        r = torch.sqrt(torch.pow(1.0 - u, 1.0 / (1.0 - qk)) - 1.0)
         ang = 2.0 * math.pi * torch.rand_like(dk)
-        out = centers + torch.stack([r * ang.cos(), r * ang.sin()], dim=-1)
+        ex = r * ang.cos() * dk * rk        # major axis
+        ey = r * ang.sin() * dk / rk        # minor axis
+        c, s = tk.cos(), tk.sin()
+        out = centers + torch.stack([ex * c - ey * s, ex * s + ey * c], dim=-1)
 
         xmin, ymin, xmax, ymax = bg_box
         uu = torch.rand(out.shape, device=out.device)

@@ -26,7 +26,7 @@ TAU_FLOOR_DAYS = 1e-7  # ~9 ms; catalog's smallest nonzero gap is ~5e-8 d
 RECENCY_LAGS = (1, 2, 4, 8, 16, 32, 64)  # Hawkes-style order statistics
 # Per-event token width: [log_tau, x, y, m] + per-lag [log dt, dx, dy, mag].
 TOKEN_DIM = 4 + 4 * len(RECENCY_LAGS)
-LAST_K = 32  # kernel-mixture components: the last K event locations
+LAST_K = 64  # kernel-mixture components: the last K event locations
 
 
 def _lagged(arr: np.ndarray, k: int) -> np.ndarray:

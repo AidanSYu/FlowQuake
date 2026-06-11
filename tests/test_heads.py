@@ -30,7 +30,7 @@ def test_kernel_mixture_normalizes():
     assert abs(integral - 1.0) < 0.03, integral
 
     # With the KDE component disabled, exactly its weight is missing.
-    log_w, _, _ = head._params(cond, comp_feats)
+    log_w = head._params(cond, comp_feats)[0]
     w_kde = log_w.exp()[0, -1].item()
     lp2 = head.log_prob(
         pts, comp_xy.expand(len(pts), -1, -1), comp_feats.expand(len(pts), -1, -1),
@@ -38,6 +38,28 @@ def test_kernel_mixture_normalizes():
     )
     integral2 = (lp2.exp().sum() * cell).item()
     assert abs(integral2 - (1.0 - w_kde)) < 0.03, (integral2, w_kde)
+
+
+def test_anisotropic_kernel_normalizes():
+    """Forced elongated/rotated component must still integrate to 1."""
+    torch.manual_seed(0)
+    head = KernelMixtureHead(cond_dim=4, n_comp=1)
+
+    def fixed_params(cond, comp_feats):
+        B = cond.shape[0]
+        log_w = torch.log(torch.tensor([[0.999, 5e-4, 5e-4]])).expand(B, -1)
+        one = torch.ones(B, 1)
+        return log_w, 4.0 * one, 1.6 * one, 2.0 * one, 0.7 * one
+
+    head._params = fixed_params
+    half, n = 400.0, 801
+    g = torch.linspace(-half, half, n)
+    xx, yy = torch.meshgrid(g, g, indexing="ij")
+    pts = torch.stack([xx.reshape(-1), yy.reshape(-1)], dim=-1)
+    lp = head.log_prob(pts, torch.zeros(len(pts), 1, 2), torch.zeros(len(pts), 1, 3),
+                       torch.zeros(len(pts), 4), bg_area=(2 * half) ** 2)
+    integral = (lp.exp().sum() * (2 * half / (n - 1)) ** 2).item()
+    assert abs(integral - 1.0) < 0.04, integral
 
 
 def test_kernel_mixture_rewards_proximity():
