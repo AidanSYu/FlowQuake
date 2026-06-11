@@ -126,6 +126,24 @@ def load_catalog(
     stats["bg_xmin"], stats["bg_ymin"] = float(x.min() - 10), float(y.min() - 10)
     stats["bg_xmax"], stats["bg_ymax"] = float(x.max() + 10), float(y.max() + 10)
 
+    # Train-era seismicity map: the "fault map" KDE background (ETAS-style),
+    # fit strictly on pre-val events. Density per km^2 with a 2% uniform
+    # floor so off-fault locations stay finite.
+    from scipy.ndimage import gaussian_filter
+
+    bin_km = 2.0
+    nx = int(np.ceil((stats["bg_xmax"] - stats["bg_xmin"]) / bin_km))
+    ny = int(np.ceil((stats["bg_ymax"] - stats["bg_ymin"]) / bin_km))
+    gx = np.clip(((x[fit] - stats["bg_xmin"]) / bin_km).astype(int), 0, nx - 1)
+    gy = np.clip(((y[fit] - stats["bg_ymin"]) / bin_km).astype(int), 0, ny - 1)
+    grid = np.zeros((nx, ny))
+    np.add.at(grid, (gx, gy), 1.0)
+    grid = gaussian_filter(grid, sigma=2.0)          # ~4 km smoothing
+    grid = grid / (grid.sum() * bin_km ** 2 + 1e-12)
+    grid = 0.98 * grid + 0.02 / stats["bg_area"]
+    stats["kde_log_grid"] = np.log(grid).astype(np.float32)
+    stats["kde_bin"] = bin_km
+
     raw = np.stack([log_tau, x, y, m], axis=1)
     feats = np.concatenate(
         [

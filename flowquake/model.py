@@ -101,6 +101,41 @@ class FlowQuakeTPP(nn.Module):
         )
         return comp_xy, feats
 
+    # --- background fault-map lookup ---------------------------------------
+
+    def _log_kde(self, s_km: torch.Tensor) -> torch.Tensor | None:
+        """Train-era seismicity log-density (per km^2) at s_km (B, 2)."""
+        st = self.stats
+        if "kde_log_grid" not in st:
+            return None
+        if getattr(self, "_kde_t", None) is None or self._kde_t.device != s_km.device:
+            self._kde_t = torch.as_tensor(st["kde_log_grid"], device=s_km.device)
+        g = self._kde_t
+        ix = ((s_km[:, 0] - st["bg_xmin"]) / st["kde_bin"]).long().clamp(0, g.shape[0] - 1)
+        iy = ((s_km[:, 1] - st["bg_ymin"]) / st["kde_bin"]).long().clamp(0, g.shape[1] - 1)
+        return g[ix, iy]
+
+    def _kde_sampler(self, device):
+        st = self.stats
+        if "kde_log_grid" not in st:
+            return None
+        if getattr(self, "_kde_probs", None) is None or self._kde_probs.device != device:
+            g = torch.as_tensor(st["kde_log_grid"], device=device).double()
+            self._kde_probs = (g - g.max()).exp().flatten()
+            self._kde_shape = st["kde_log_grid"].shape
+
+        def sampler(n):
+            flat = torch.multinomial(self._kde_probs, n, replacement=True)
+            nx, ny = self._kde_shape
+            ix = (flat // ny).float()
+            iy = (flat % ny).float()
+            u = torch.rand(n, 2, device=device)
+            x = st["bg_xmin"] + (ix + u[:, 0]) * st["kde_bin"]
+            y = st["bg_ymin"] + (iy + u[:, 1]) * st["kde_bin"]
+            return torch.stack([x, y], dim=-1)
+
+        return sampler
+
     # --- shared conditioning ----------------------------------------------
 
     def _cond(self, tokens, mask):
@@ -129,7 +164,8 @@ class FlowQuakeTPP(nn.Module):
 
         comp_xy, comp_feats = self._comp_inputs(lastk[mask])
         s_tgt = raw_next[mask][:, :2]
-        sll = self.head_s.log_prob(s_tgt, comp_xy, comp_feats, cond, st["bg_area"])
+        sll = self.head_s.log_prob(s_tgt, comp_xy, comp_feats, cond, st["bg_area"],
+                                   log_kde_at_s=self._log_kde(s_tgt))
         loss_s = -sll.mean()
 
         m_tgt = raw_next[mask][:, 2]
@@ -180,8 +216,10 @@ class FlowQuakeTPP(nn.Module):
             tll.append(lp_t - math.log(st["log_tau_std"]) - log_tau)
 
             comp_xy, comp_feats = self._comp_inputs(lk[i : i + event_chunk])
-            sll.append(self.head_s.log_prob(rn[i : i + event_chunk, :2], comp_xy,
-                                            comp_feats, cs, st["bg_area"]))
+            s_tgt = rn[i : i + event_chunk, :2]
+            sll.append(self.head_s.log_prob(s_tgt, comp_xy, comp_feats, cs,
+                                            st["bg_area"],
+                                            log_kde_at_s=self._log_kde(s_tgt)))
             mll.append(self.head_m.log_prob(rn[i : i + event_chunk, 2], cs, st["mcut"]))
         return {"tll": torch.cat(tll), "sll": torch.cat(sll), "mll": torch.cat(mll)}
 
@@ -200,7 +238,8 @@ class FlowQuakeTPP(nn.Module):
         tau = torch.exp(u_t[:, 0] * st["log_tau_std"] + st["log_tau_mean"])
         comp_xy, comp_feats = self._comp_inputs(lastk_lane)
         s = self.head_s.sample(comp_xy, comp_feats, cond,
-                               (st["bg_xmin"], st["bg_ymin"], st["bg_xmax"], st["bg_ymax"]))
+                               (st["bg_xmin"], st["bg_ymin"], st["bg_xmax"], st["bg_ymax"]),
+                               kde_sampler=self._kde_sampler(cond.device))
         m = self.head_m.sample(cond, st["mcut"]).clamp(max=8.5)
         return tau, s[:, 0], s[:, 1], m
 
