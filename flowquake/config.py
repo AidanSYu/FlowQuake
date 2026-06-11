@@ -28,6 +28,7 @@ class ModelConfig:
     expand: int = 2
     chunk: int = 64
     flow_hidden: int = 256
+    mix_hidden: int = 64
     flow_layers: int = 3
     loss_weights: tuple = (1.0, 1.0, 0.5)
     sigma_min: tuple = (0.02, 0.01, 0.05)

@@ -17,7 +17,8 @@ model:
   n_heads: 6
   expand: 2
   chunk: 64
-  flow_hidden: 96
+  flow_hidden: 128
+  mix_hidden: 128
   flow_layers: 3
   loss_weights: [1.0, 1.0, 0.5]
   # KDE-style bandwidth floors (normalized units) per head [time, space, mag]:

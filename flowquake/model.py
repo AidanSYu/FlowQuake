@@ -57,6 +57,7 @@ class FlowQuakeTPP(nn.Module):
         loss_weights: tuple[float, float, float] = (1.0, 1.0, 0.5),
         sigma_min: tuple[float, float, float] = (0.0, 0.0, 0.0),
         dropout: float = 0.0,
+        mix_hidden: int = 64,
         mag_dequant: float = 0.0,   # kept for config compat (GR head absorbs it)
         input_noise: float = 0.0,   # train-time token jitter (normalized units)
         h_bottleneck: int = 0,
@@ -77,7 +78,7 @@ class FlowQuakeTPP(nn.Module):
         self.head_t = CondFlow(1, cond_dim=cond_dim, hidden=flow_hidden,
                                n_layers=flow_layers, sigma_min=sigma_min[0],
                                dropout=dropout)
-        self.head_s = KernelMixtureHead(cond_dim, n_comp=MIX_K)
+        self.head_s = KernelMixtureHead(cond_dim, n_comp=MIX_K, hidden=mix_hidden)
         self.head_m = GRMagnitudeHead(cond_dim)
         self.input_noise = input_noise
         self.loss_weights = loss_weights
