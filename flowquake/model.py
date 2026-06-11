@@ -29,8 +29,20 @@ from .ssm import SSMEncoder
 
 D_IN = TOKEN_DIM
 
+# Token dims safe for head conditioning: everything except absolute x, y.
+# (log_tau, mag, and the per-lag relational block are translation-invariant
+# statistics that cannot fingerprint a specific catalog position-era.)
+SAFE_TOKEN_DIMS = [0, 3] + list(range(4, TOKEN_DIM))
+
 
 class FlowQuakeTPP(nn.Module):
+    """h_bottleneck:
+        0  -> heads see relational token features only ("neural ETAS";
+              memorization through conditioning structurally impossible)
+        k  -> additionally a k-dim noisy linear readout of the SSM state
+              (the whole-catalog channel, too narrow to memorize events)
+    """
+
     def __init__(
         self,
         d_model: int = 96,
@@ -47,19 +59,26 @@ class FlowQuakeTPP(nn.Module):
         dropout: float = 0.0,
         mag_dequant: float = 0.0,   # kept for config compat (GR head absorbs it)
         input_noise: float = 0.0,   # train-time token jitter (normalized units)
+        h_bottleneck: int = 0,
+        h_noise: float = 0.1,       # train-time noise on the bottleneck channel
     ):
         super().__init__()
-        self.encoder = SSMEncoder(
-            d_in=D_IN, d_model=d_model, n_layers=n_layers, d_state=d_state,
-            n_heads=n_heads, expand=expand, chunk=chunk,
-        )
-        cond_dim = d_model + D_IN
+        self.h_bottleneck = h_bottleneck
+        self.h_noise = h_noise
+        if h_bottleneck > 0:
+            self.encoder = SSMEncoder(
+                d_in=D_IN, d_model=d_model, n_layers=n_layers, d_state=d_state,
+                n_heads=n_heads, expand=expand, chunk=chunk,
+            )
+            self.h_proj = nn.Linear(d_model, h_bottleneck)
+        else:
+            self.encoder = None
+        cond_dim = len(SAFE_TOKEN_DIMS) + h_bottleneck
         self.head_t = CondFlow(1, cond_dim=cond_dim, hidden=flow_hidden,
                                n_layers=flow_layers, sigma_min=sigma_min[0],
                                dropout=dropout)
         self.head_s = KernelMixtureHead(cond_dim, n_comp=LAST_K)
         self.head_m = GRMagnitudeHead(cond_dim)
-        self.h_drop = nn.Dropout(dropout)
         self.input_noise = input_noise
         self.loss_weights = loss_weights
         self.stats = dict(stats or {})
@@ -82,18 +101,28 @@ class FlowQuakeTPP(nn.Module):
         )
         return comp_xy, feats
 
+    # --- shared conditioning ----------------------------------------------
+
+    def _cond(self, tokens, mask):
+        """Build head conditioning rows for masked positions."""
+        tok_safe = tokens[mask][:, SAFE_TOKEN_DIMS]
+        if self.h_bottleneck == 0:
+            return tok_safe
+        enc_in = tokens
+        if self.training and self.input_noise > 0:
+            enc_in = tokens + self.input_noise * torch.randn_like(tokens)
+        h = self.h_proj(self.encoder(enc_in)[mask])
+        if self.training and self.h_noise > 0:
+            h = h + self.h_noise * torch.randn_like(h)
+        return torch.cat([tok_safe, h], dim=-1)
+
     # --- training -------------------------------------------------------
 
     def fm_losses(self, tokens, target, mask, lastk, raw_next):
         """tokens (B,W,D_IN); target (B,W,4) normalized; mask (B,W) bool;
         lastk (B,W,K,4) raw; raw_next (B,W,3) raw (x,y,mag) of next event."""
         st = self.stats
-        enc_in = tokens
-        if self.training and self.input_noise > 0:
-            enc_in = tokens + self.input_noise * torch.randn_like(tokens)
-        h = self.encoder(enc_in)
-        tok = tokens[mask]
-        cond = torch.cat([self.h_drop(h[mask]), tok], dim=-1)
+        cond = self._cond(tokens, mask)
 
         u_t = target[mask][:, 0:1]
         loss_t = self.head_t.fm_loss(u_t, cond)
@@ -125,13 +154,20 @@ class FlowQuakeTPP(nn.Module):
         return torch.cat(outs, dim=1)
 
     @torch.no_grad()
+    def _cond_eval(self, tokens, mask, segment):
+        tok_safe = tokens[mask][:, SAFE_TOKEN_DIMS]
+        if self.h_bottleneck == 0:
+            return tok_safe
+        h_all = self.encode_full(tokens, segment=segment)
+        return torch.cat([tok_safe, self.h_proj(h_all[mask])], dim=-1)
+
+    @torch.no_grad()
     def log_likelihood(self, tokens, target, mask, lastk, raw_next,
                        steps: int = 64, event_chunk: int = 4096,
                        segment: int = 16384) -> dict[str, torch.Tensor]:
         """Per-event tll/sll/mll in physical units at masked positions."""
         st = self.stats
-        h_all = self.encode_full(tokens, segment=segment)
-        cond_all = torch.cat([h_all[mask], tokens[mask]], dim=-1)
+        cond_all = self._cond_eval(tokens, mask, segment)
         tgt = target[mask]
         lk = lastk[mask]
         rn = raw_next[mask]
@@ -152,14 +188,14 @@ class FlowQuakeTPP(nn.Module):
     # --- simulation -------------------------------------------------------
 
     @torch.no_grad()
-    def sample_next(self, h: torch.Tensor, token_last: torch.Tensor,
+    def sample_next(self, h: torch.Tensor | None, token_last: torch.Tensor,
                     lastk_lane: torch.Tensor, steps: int = 24):
-        """h (B,d); token_last (B,D_IN); lastk_lane (B,K,4) raw components.
-
-        Returns (tau_days, x_km, y_km, mag).
-        """
+        """h (B,d_model) or None when h_bottleneck==0; token_last (B,D_IN);
+        lastk_lane (B,K,4) raw components. Returns (tau_days, x_km, y_km, mag)."""
         st = self.stats
-        cond = torch.cat([h, token_last], dim=-1)
+        cond = token_last[:, SAFE_TOKEN_DIMS]
+        if self.h_bottleneck > 0:
+            cond = torch.cat([cond, self.h_proj(h)], dim=-1)
         u_t = self.head_t.sample(cond, steps=steps)
         tau = torch.exp(u_t[:, 0] * st["log_tau_std"] + st["log_tau_mean"])
         comp_xy, comp_feats = self._comp_inputs(lastk_lane)

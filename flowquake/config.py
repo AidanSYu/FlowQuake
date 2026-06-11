@@ -34,6 +34,8 @@ class ModelConfig:
     dropout: float = 0.1
     mag_dequant: float = 0.01
     input_noise: float = 0.1
+    h_bottleneck: int = 0   # 0 = heads see relational features only
+    h_noise: float = 0.1
 
 
 @dataclass

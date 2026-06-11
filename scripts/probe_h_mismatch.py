@@ -1,10 +1,13 @@
 """Probe: is eval-time conditioning OOD vs training-time conditioning?
 
-Compares per-event LL at the SAME masked positions under:
+Per-event LL at the SAME masked positions under:
   A) full-catalog streaming h (the eval path: encode_full, clean tokens)
   B) training-style h: 2048-window forward, zero initial state, clean tokens
   C) full-catalog h with training-style input noise (0.1) on encoder input
   D) untrained (fresh-init) model, full path  -> the "do-nothing" baseline
+
+If B >> A on val, eval conditioning is OOD vs training (state mismatch).
+If A ~ B both flat vs D, the heads aren't using h at all.
 
 Run: python scripts/probe_h_mismatch.py runs/comcat25/ckpt_last.pt
 """
@@ -22,7 +25,7 @@ from flowquake.train import make_model
 
 ckpt_path = sys.argv[1] if len(sys.argv) > 1 else "runs/comcat25/ckpt_last.pt"
 device = "cuda"
-N_SUB = 256
+N_SUB = 512
 W = 2048
 STEPS = 32
 
@@ -36,63 +39,52 @@ model.load_state_dict(ckpt["model"])
 print(f"ckpt step {ckpt['step']}  (input_noise={model.input_noise})")
 
 torch.manual_seed(0)
-fresh = make_model(cfg, cat.stats).to(device).eval()  # untrained reference
+fresh = make_model(cfg, cat.stats).to(device).eval()
 
 st = model.stats
 feats = cat.feats.to(device)
 
 
-def head_ll(model, h, tok, tgt, steps=STEPS):
-    """Replicates model.log_likelihood given precomputed h rows."""
+def head_ll(mdl, h, tok, tgt, lk, rn, steps=STEPS):
     cond = torch.cat([h, tok], dim=-1)
-    u_t, u_m = tgt[:, 0:1], tgt[:, 3:4]
-    u_s = tgt[:, 1:3] - tok[:, 1:3]
-    lp_t = model.head_t.log_prob(u_t, cond, steps=steps)
-    lp_s = model.head_s.log_prob(u_s, torch.cat([cond, u_t], dim=-1), steps=steps)
+    lp_t = mdl.head_t.log_prob(tgt[:, 0:1], cond, steps=steps)
     log_tau = tgt[:, 0] * st["log_tau_std"] + st["log_tau_mean"]
     tll = lp_t - math.log(st["log_tau_std"]) - log_tau
-    sll = lp_s - math.log(st["x_std"] * st["y_std"])
-    return tll, sll
+    comp_xy, comp_feats = mdl._comp_inputs(lk)
+    sll = mdl.head_s.log_prob(rn[:, :2], comp_xy, comp_feats, cond, st["bg_area"])
+    mll = mdl.head_m.log_prob(rn[:, 2], cond, st["mcut"])
+    return tll, sll, mll
 
 
 rng = np.random.default_rng(0)
 for split in ["train", "val"]:
-    tokens, target, mask = full_sequence_batch(cat, split)
+    tokens, target, mask, lastk, raw_next = full_sequence_batch(cat, split)
     tokens, target = tokens.to(device), target.to(device)
     idx = mask[0].nonzero(as_tuple=True)[0]
-    idx = idx[idx >= W]  # need a full window of history
+    idx = idx[idx >= W]
     sel = torch.from_numpy(rng.choice(idx.numpy(), N_SUB, replace=False)).long()
     sel, _ = torch.sort(sel)
     tok = feats[sel]
     tgt = target[0, sel]
+    lk = lastk[0, sel].to(device)
+    rn = raw_next[0, sel].to(device)
 
     with torch.no_grad():
-        # A) full-catalog streaming h
-        h_full_all = model.encode_full(tokens)
-        h_A = h_full_all[0, sel]
-        # B) training-style windowed h (zero init state, window 2048)
+        h_A = model.encode_full(tokens)[0, sel]
         wins = torch.stack([feats[i - W + 1: i + 1] for i in sel.tolist()])
-        h_B = []
-        for c in range(0, N_SUB, 32):
-            h_B.append(model.encoder(wins[c:c + 32])[:, -1])
-        h_B = torch.cat(h_B)
-        # C) full-catalog h with train-style input noise
-        noisy = tokens + 0.1 * torch.randn_like(tokens)
-        h_C = model.encode_full(noisy)[0, sel]
-        # D) untrained model, full path
+        h_B = torch.cat([model.encoder(wins[c:c + 32])[:, -1]
+                         for c in range(0, N_SUB, 32)])
+        h_C = model.encode_full(tokens + 0.1 * torch.randn_like(tokens))[0, sel]
         h_D = fresh.encode_full(tokens)[0, sel]
 
-        tllA, sllA = head_ll(model, h_A, tok, tgt)
-        tllB, sllB = head_ll(model, h_B, tok, tgt)
-        tllC, sllC = head_ll(model, h_C, tok, tgt)
-        tllD, sllD = head_ll(fresh, h_D, tok, tgt)
+        rows = [("A full-clean ", *head_ll(model, h_A, tok, tgt, lk, rn)),
+                ("B window2048 ", *head_ll(model, h_B, tok, tgt, lk, rn)),
+                ("C full-noised", *head_ll(model, h_C, tok, tgt, lk, rn)),
+                ("D untrained  ", *head_ll(fresh, h_D, tok, tgt, lk, rn))]
 
     dh = (h_A - h_B).abs().mean().item()
     print(f"\n[{split}] n={N_SUB}  |h_A|={h_A.abs().mean():.3f} "
           f"|h_B|={h_B.abs().mean():.3f}  mean|h_A-h_B|={dh:.4f}")
-    for name, tll, sll in [("A full-clean ", tllA, sllA),
-                           ("B window2048 ", tllB, sllB),
-                           ("C full-noised", tllC, sllC),
-                           ("D untrained  ", tllD, sllD)]:
-        print(f"  {name}: tll {tll.mean():8.3f} (med {tll.median():8.3f})   "
-              f"sll {sll.mean():8.3f} (med {sll.median():8.3f})")
+    for name, tll, sll, mll in rows:
+        print(f"  {name}: tll {tll.mean():8.3f}  sll {sll.mean():8.3f} "
+              f"(med {sll.median():8.3f})  mll {mll.mean():7.3f}")

@@ -32,6 +32,8 @@ def make_model(cfg: Config, stats: dict) -> FlowQuakeTPP:
         dropout=getattr(m, "dropout", 0.0),
         mag_dequant=getattr(m, "mag_dequant", 0.0),
         input_noise=getattr(m, "input_noise", 0.0),
+        h_bottleneck=getattr(m, "h_bottleneck", 0),
+        h_noise=getattr(m, "h_noise", 0.1),
     )
 
 

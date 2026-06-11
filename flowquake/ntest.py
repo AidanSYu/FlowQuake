@@ -42,16 +42,17 @@ def simulate_daily_counts(
     n_hist = int(np.searchsorted(cat.t_days, day_start_days, side="left"))
     tokens = cat.feats[:n_hist].unsqueeze(0).to(device)
 
-    h_last, states = None, None
-    seg = 16384
-    for s in range(0, n_hist, seg):
-        h, states = model.encoder.prefill(tokens[:, s : s + seg], states)
-    h_last = h[:, -1]
-
-    # Broadcast streaming state across simulation lanes.
-    states = [(st.expand(n_sims, -1, -1, -1).contiguous(),
-               cc.expand(n_sims, -1, -1).contiguous()) for st, cc in states]
-    h_cur = h_last.expand(n_sims, -1).contiguous()
+    if model.encoder is not None:
+        states = None
+        seg = 16384
+        for s in range(0, n_hist, seg):
+            h, states = model.encoder.prefill(tokens[:, s : s + seg], states)
+        # Broadcast streaming state across simulation lanes.
+        states = [(st.expand(n_sims, -1, -1, -1).contiguous(),
+                   cc.expand(n_sims, -1, -1).contiguous()) for st, cc in states]
+        h_cur = h[:, -1].expand(n_sims, -1).contiguous()
+    else:
+        states, h_cur = None, None
     t_last = torch.full((n_sims,), float(cat.t_days[n_hist - 1]), device=device)
     tok_last = tokens[0, -1].expand(n_sims, -1).contiguous()
     # Recent-event history buffers (most recent first, raw units).
@@ -108,10 +109,16 @@ def simulate_daily_counts(
         m = torch.clamp(m, min=model.stats["mcut"])
         feat = model.build_token(
             tau, x, y, m, t_next.double(), (t_buf, x_buf, y_buf, m_buf)
-        ).to(h_cur.dtype)
-        h_new, new_states = model.encoder.step(feat, states)
+        ).to(tok_last.dtype)
         upd = active.view(-1, 1)
-        h_cur = torch.where(upd, h_new, h_cur)
+        if model.encoder is not None:
+            h_new, new_states = model.encoder.step(feat, states)
+            h_cur = torch.where(upd, h_new, h_cur)
+            states = [
+                (torch.where(active.view(-1, 1, 1, 1), s2, s1),
+                 torch.where(active.view(-1, 1, 1), c2, c1))
+                for (s1, c1), (s2, c2) in zip(states, new_states)
+            ]
         tok_last = torch.where(upd, feat, tok_last)
 
         def _push(buf, val):
@@ -123,11 +130,6 @@ def simulate_daily_counts(
         x_buf = _push(x_buf, x)
         y_buf = _push(y_buf, y)
         m_buf = _push(m_buf, m)
-        states = [
-            (torch.where(active.view(-1, 1, 1, 1), s2, s1),
-             torch.where(active.view(-1, 1, 1), c2, c1))
-            for (s1, c1), (s2, c2) in zip(states, new_states)
-        ]
         t_last = torch.where(active, t_next, t_last)
 
     return counts.cpu().numpy()
