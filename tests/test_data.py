@@ -44,7 +44,7 @@ def test_normalization_is_train_only(cat):
 def test_crop_alignment(cat):
     ds = CropDataset(cat, window=512, burn_in=64, n_crops=4, seed=1)
     tokens, target, mask, lastk, raw_next = ds[0]
-    assert lastk.shape == (512, 64, 4) and raw_next.shape == (512, 3)
+    assert lastk.shape == (512, 80, 4) and raw_next.shape == (512, 3)
     assert tokens.shape[0] == 512 and target.shape == (512, 4)
     assert not mask[:64].any()
     assert not mask[-1]

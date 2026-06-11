@@ -74,11 +74,15 @@ def simulate_daily_counts(
     active = torch.ones(n_sims, dtype=torch.bool, device=device)
     first = True
 
+    # Big-trigger components held static over the 1-day horizon.
+    static_big = cat.lastk[n_hist - 1, 64:].unsqueeze(0).expand(n_sims, -1, -1) \
+        .to(device).contiguous()
+
     for _ in range(MAX_EVENTS_PER_DAY):
         if not active.any():
             break
         bufs = (t_buf, x_buf, y_buf, m_buf)
-        lastk_lane = model.lastk_from_bufs(t_last.double(), bufs)
+        lastk_lane = model.lastk_from_bufs(t_last.double(), bufs, static_big)
         tau, x, y, m = model.sample_next(h_cur, tok_last, lastk_lane, steps=sample_steps)
         if first:
             # The first continuation event must land after the day start:

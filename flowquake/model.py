@@ -22,7 +22,7 @@ import math
 import torch
 import torch.nn as nn
 
-from .data import LAST_K, RECENCY_LAGS, TAU_FLOOR_DAYS, TOKEN_DIM
+from .data import LAST_K, MIX_K, RECENCY_LAGS, TAU_FLOOR_DAYS, TOKEN_DIM
 from .flow import CondFlow
 from .heads import GRMagnitudeHead, KernelMixtureHead
 from .ssm import SSMEncoder
@@ -77,7 +77,7 @@ class FlowQuakeTPP(nn.Module):
         self.head_t = CondFlow(1, cond_dim=cond_dim, hidden=flow_hidden,
                                n_layers=flow_layers, sigma_min=sigma_min[0],
                                dropout=dropout)
-        self.head_s = KernelMixtureHead(cond_dim, n_comp=LAST_K)
+        self.head_s = KernelMixtureHead(cond_dim, n_comp=MIX_K)
         self.head_m = GRMagnitudeHead(cond_dim)
         self.input_noise = input_noise
         self.loss_weights = loss_weights
@@ -273,14 +273,18 @@ class FlowQuakeTPP(nn.Module):
         return torch.cat([core, rec], dim=-1)
 
     @staticmethod
-    def lastk_from_bufs(t_last, bufs):
-        """Mixture components (B, K, 4) from lane history buffers, which hold
-        the last events most-recent-first INCLUDING the current last event."""
+    def lastk_from_bufs(t_last, bufs, static_big=None):
+        """Mixture components (B, MIX_K, 4) from lane history buffers (which
+        hold the last events most-recent-first INCLUDING the current last
+        event) plus a static big-trigger block for the simulation horizon."""
         t_buf, x_buf, y_buf, m_buf = bufs
         K = LAST_K
         log_dt = torch.log(
             torch.clamp(t_last.unsqueeze(1) - t_buf[:, :K], min=TAU_FLOOR_DAYS)
         ).to(x_buf.dtype)
-        return torch.stack(
+        recent = torch.stack(
             [x_buf[:, :K], y_buf[:, :K], log_dt, m_buf[:, :K]], dim=-1
         )
+        if static_big is None:
+            return recent
+        return torch.cat([recent, static_big], dim=1)

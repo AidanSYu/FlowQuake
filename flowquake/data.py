@@ -27,6 +27,14 @@ RECENCY_LAGS = (1, 2, 4, 8, 16, 32, 64)  # Hawkes-style order statistics
 # Per-event token width: [log_tau, x, y, m] + per-lag [log dt, dx, dy, mag].
 TOKEN_DIM = 4 + 4 * len(RECENCY_LAGS)
 LAST_K = 64  # kernel-mixture components: the last K event locations
+# Long-lived triggers: the last-K window spans only ~70 days at the catalog's
+# average rate, but large mainshocks keep triggering for years (ETAS sums over
+# the full history). Add the largest events of a trailing 2-year window as
+# extra mixture components.
+BIG_M = 16
+BIG_MAG_MIN = 4.5
+BIG_WINDOW_DAYS = 730.0
+MIX_K = LAST_K + BIG_M
 
 
 def _lagged(arr: np.ndarray, k: int) -> np.ndarray:
@@ -36,6 +44,33 @@ def _lagged(arr: np.ndarray, k: int) -> np.ndarray:
     if k >= len(arr):
         return np.full_like(arr, arr[0])
     return np.concatenate([np.full(k, arr[0]), arr[:-k]])
+
+
+def big_trigger_matrix(t_days: np.ndarray, x: np.ndarray, y: np.ndarray,
+                       m: np.ndarray) -> np.ndarray:
+    """Per event i: the BIG_M largest events with m >= BIG_MAG_MIN in the
+    trailing BIG_WINDOW_DAYS (events <= i). Layout (E, BIG_M, 4) raw
+    [x, y, log_dt, m], null-padded with an ancient far-decayed component."""
+    E = len(t_days)
+    out = np.empty((E, BIG_M, 4), dtype=np.float32)
+    null_row = np.array(
+        [x[0], y[0], np.log(BIG_WINDOW_DAYS * 10.0), BIG_MAG_MIN], dtype=np.float32
+    )
+    big_idx = np.flatnonzero(m >= BIG_MAG_MIN)
+    bt = t_days[big_idx]
+    for i in range(E):
+        lo = np.searchsorted(bt, t_days[i] - BIG_WINDOW_DAYS, "left")
+        hi = np.searchsorted(bt, t_days[i], "right")
+        cand = big_idx[lo:hi]
+        if len(cand) > BIG_M:
+            cand = cand[np.argsort(m[cand])[-BIG_M:]]
+        n = len(cand)
+        out[i, :n, 0] = x[cand]
+        out[i, :n, 1] = y[cand]
+        out[i, :n, 2] = np.log(np.clip(t_days[i] - t_days[cand], TAU_FLOOR_DAYS, None))
+        out[i, :n, 3] = m[cand]
+        out[i, n:] = null_row
+    return out
 
 
 def recency_matrix(t_days: np.ndarray, x: np.ndarray, y: np.ndarray,
@@ -113,13 +148,15 @@ def load_catalog(
     stats["rec_std"] = (rec[fit].std(axis=0) + 1e-8).tolist()
     rec_n = (rec - np.asarray(stats["rec_mean"])) / np.asarray(stats["rec_std"])
 
-    # Mixture components: raw [x, y, log_dt, m] of events i, i-1, .., i-K+1.
-    lastk = np.empty((len(t_days), LAST_K, 4), dtype=np.float32)
+    # Mixture components: raw [x, y, log_dt, m] of events i, i-1, .., i-K+1,
+    # then the BIG_M largest trailing-window events (long-lived triggers).
+    lastk = np.empty((len(t_days), MIX_K, 4), dtype=np.float32)
     for j in range(LAST_K):
         lastk[:, j, 0] = _lagged(x, j)
         lastk[:, j, 1] = _lagged(y, j)
         lastk[:, j, 2] = np.log(np.clip(t_days - _lagged(t_days, j), TAU_FLOOR_DAYS, None))
         lastk[:, j, 3] = _lagged(m, j)
+    lastk[:, LAST_K:] = big_trigger_matrix(t_days, x, y, m)
 
     # Catalog bounding-box area (km^2) for the uniform background component.
     stats["bg_area"] = float((x.max() - x.min() + 20.0) * (y.max() - y.min() + 20.0))
