@@ -35,6 +35,7 @@ for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
            "NUMEXPR_NUM_THREADS"):
     os.environ.setdefault(_v, "1")
 
+import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
@@ -158,7 +159,9 @@ def main(argv=None):
                 inv_template[key] = str(cand)
 
     days = _load_days(args.days_from)
-    out_dir = Path(args.out)
+    # Absolute: under the 'spawn' start method workers inherit cwd but may run
+    # before any chdir; an absolute out path is unambiguous.
+    out_dir = Path(args.out).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"ETAS CSEP: {len(days)} days, {args.n_sims} sims/day, "
           f"{args.workers} workers -> {out_dir}", flush=True)
@@ -170,11 +173,17 @@ def main(argv=None):
             print(f"[{done+1}/{len(days)}] {_worker(task)}", flush=True)
             done += 1
     else:
-        # max_tasks_per_child=1: respawn each worker after every day so the full
-        # per-day working set (ETAS rebuilds triggering/distance matrices over
-        # the entire history, ~3-5 GB) is returned to the OS, not ratcheted.
+        # 'spawn' (not Linux's default 'fork'): forking a parent that has
+        # imported heavy C-extensions (shapely/pyproj/PROJ, BLAS) and then
+        # respawning per task is fork-unsafe and crashes the pool
+        # (BrokenProcessPool). spawn re-imports cleanly in each worker.
+        # max_tasks_per_child=1: respawn each worker after every day so the
+        # per-day working set (ETAS rebuilds an O(N^2) triggering/distance
+        # structure over the entire history) is returned to the OS, not ratcheted.
+        ctx = mp.get_context("spawn")
         with ProcessPoolExecutor(max_workers=args.workers,
-                                 max_tasks_per_child=1) as ex:
+                                 max_tasks_per_child=1,
+                                 mp_context=ctx) as ex:
             futs = [ex.submit(_worker, t) for t in tasks]
             for fut in as_completed(futs):
                 done += 1
