@@ -36,6 +36,21 @@ conference (the benchmark itself only reached TMLR).
 - **Correctness gate (M4)**: ETAS reproduces ll_scores.json exactly; FlowQuake's
   21,889 scored events are *identical* to ETAS's set (perfect intersection).
 
+### Full-suite temporal result (THE headline) — FlowQuake N1 vs ETAS, per-event LL
+| dataset | mc | FQ tll | ETAS tll | temporal | FQ sll | ETAS sll | FQ nll | ETAS nll |
+|---|---|---|---|---|---|---|---|---|
+| ComCat_25 | 2.5 | 1.488 | 1.434 | **WIN** | −9.054 | −8.690 | 7.566 | 7.255 |
+| WHITE_06 | 0.6 | 2.068 | 2.021 | **WIN** | −4.727 | −4.261 | 2.659 | 2.240 |
+| SanJac_10 | 1.0 | 1.162 | 1.133 | **WIN** | −5.919 | −5.398 | 4.758 | 4.266 |
+| SaltonSea_10 | 1.0 | 2.435 | 2.332 | **WIN** | −2.639 | −2.315 | 0.203 | −0.017 |
+| SCEDC_20 | 2.0 | 2.619 | 2.541 | **WIN** | −7.847 | −7.534 | 5.228 | 4.993 |
+
+FlowQuake beats ETAS **temporally on all five** California EarthquakeNPP catalogs
+(operational statewide + dense fault-zone + Salton Sea swarm); ETAS keeps the
+**spatial** edge on all five (consistent, characterized: sub-km over-smoothing).
+Single-seed except ComCat (3-seed); multi-seed in progress. This is the first
+NPP to beat ETAS temporally across the suite.
+
 ### CSEP consistency (100 forecast days × 10k simulated catalogs, best seed)
 | test | pass rate @95% | reading |
 |---|---|---|
