@@ -37,6 +37,9 @@ class ModelConfig:
     input_noise: float = 0.1
     h_bottleneck: int = 0   # 0 = heads see relational features only
     h_noise: float = 0.1
+    spatial_density_feat: bool = False  # N1: density-adaptive kernel width
+    density_radius_km: float = 2.0
+    d_floor_km: float = 0.25
 
 
 @dataclass

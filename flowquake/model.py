@@ -62,10 +62,15 @@ class FlowQuakeTPP(nn.Module):
         input_noise: float = 0.0,   # train-time token jitter (normalized units)
         h_bottleneck: int = 0,
         h_noise: float = 0.1,       # train-time noise on the bottleneck channel
+        spatial_density_feat: bool = False,  # N1: local-density kernel feature
+        density_radius_km: float = 2.0,
+        d_floor_km: float = 0.25,
     ):
         super().__init__()
         self.h_bottleneck = h_bottleneck
         self.h_noise = h_noise
+        self.use_density_feat = spatial_density_feat
+        self.density_radius_km = density_radius_km
         if h_bottleneck > 0:
             self.encoder = SSMEncoder(
                 d_in=D_IN, d_model=d_model, n_layers=n_layers, d_state=d_state,
@@ -78,7 +83,10 @@ class FlowQuakeTPP(nn.Module):
         self.head_t = CondFlow(1, cond_dim=cond_dim, hidden=flow_hidden,
                                n_layers=flow_layers, sigma_min=sigma_min[0],
                                dropout=dropout)
-        self.head_s = KernelMixtureHead(cond_dim, n_comp=MIX_K, hidden=mix_hidden)
+        self.head_s = KernelMixtureHead(
+            cond_dim, n_comp=MIX_K, hidden=mix_hidden,
+            comp_feat_dim=4 if spatial_density_feat else 3, d_floor_km=d_floor_km,
+        )
         self.head_m = GRMagnitudeHead(cond_dim)
         self.input_noise = input_noise
         self.loss_weights = loss_weights
@@ -100,6 +108,14 @@ class FlowQuakeTPP(nn.Module):
             ],
             dim=-1,
         )
+        if self.use_density_feat:
+            # N1: local seismicity density per component — count of other
+            # components within density_radius_km. Lets the kernel narrow
+            # (smaller d) in dense clusters where it currently over-smooths,
+            # without globally narrowing (the 1-5km band where we win).
+            pd = torch.cdist(comp_xy, comp_xy)  # (B, K, K) km
+            dens = (pd < self.density_radius_km).sum(-1).float() - 1.0  # exclude self
+            feats = torch.cat([feats, (torch.log1p(dens) / 3.0).unsqueeze(-1)], dim=-1)
         return comp_xy, feats
 
     # --- background fault-map lookup ---------------------------------------

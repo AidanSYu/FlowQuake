@@ -39,6 +39,7 @@ class KernelMixtureHead(nn.Module):
         cond_dim: int,
         n_comp: int,
         hidden: int = 64,
+        comp_feat_dim: int = 3,
         d_floor_km: float = 0.25,
         d_init_km: float = 2.5,
         q_floor: float = 1.15,
@@ -54,7 +55,7 @@ class KernelMixtureHead(nn.Module):
         # rho/theta give an area-preserving anisotropic kernel (axes d*rho,
         # d/rho rotated by theta): fault-strike elongation.
         self.comp_mlp = nn.Sequential(
-            nn.Linear(hidden + 3, hidden), nn.SiLU(), nn.Linear(hidden, 6)
+            nn.Linear(hidden + comp_feat_dim, hidden), nn.SiLU(), nn.Linear(hidden, 6)
         )
         self.bg_logit = nn.Linear(cond_dim, 2)  # [uniform, kde-map]
         with torch.no_grad():

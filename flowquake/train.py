@@ -35,6 +35,9 @@ def make_model(cfg: Config, stats: dict) -> FlowQuakeTPP:
         input_noise=getattr(m, "input_noise", 0.0),
         h_bottleneck=getattr(m, "h_bottleneck", 0),
         h_noise=getattr(m, "h_noise", 0.1),
+        spatial_density_feat=getattr(m, "spatial_density_feat", False),
+        density_radius_km=getattr(m, "density_radius_km", 2.0),
+        d_floor_km=getattr(m, "d_floor_km", 0.25),
     )
 
 
