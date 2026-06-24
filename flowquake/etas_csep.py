@@ -170,7 +170,11 @@ def main(argv=None):
             print(f"[{done+1}/{len(days)}] {_worker(task)}", flush=True)
             done += 1
     else:
-        with ProcessPoolExecutor(max_workers=args.workers) as ex:
+        # max_tasks_per_child=1: respawn each worker after every day so the full
+        # per-day working set (ETAS rebuilds triggering/distance matrices over
+        # the entire history, ~3-5 GB) is returned to the OS, not ratcheted.
+        with ProcessPoolExecutor(max_workers=args.workers,
+                                 max_tasks_per_child=1) as ex:
             futs = [ex.submit(_worker, t) for t in tasks]
             for fut in as_completed(futs):
                 done += 1

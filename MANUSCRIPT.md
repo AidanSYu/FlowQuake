@@ -137,7 +137,7 @@ FlowQuake among neural point processes.
 consistency result against the incumbent, we ran the benchmark's fitted ETAS
 model (Mizrahi et al. `etas`) through the *same* pyCSEP path on the *same*
 forecast days: for each day we condition the fitted ETAS on the observed
-history up to the forecast start, simulate 2×10³ one-day catalog continuations,
+history up to the forecast start, simulate 10³ one-day catalog continuations,
 and score them with the identical region, magnitude bins, observed-catalog
 filtering, and consistency criterion used for FlowQuake. This is, to our
 knowledge, the first NPP-vs-ETAS comparison in which both models are evaluated
@@ -210,7 +210,7 @@ ETAS-vs-FlowQuake CSEP comparison, and a neural Coulomb-stress spatial kernel.
 ### Open items before submission
 - ETAS through the same pyCSEP path → same-days N/S/M head-to-head: harness
   built (`flowquake/etas_csep.py`), validated end-to-end, 100-day run in
-  progress (2×10³ sims/day, 14 CPU workers). Fill §4.2 table + add
+  progress (10³ sims/day, 8 CPU workers, memory-capped). Fill §4.2 table + add
   `fig_csep_headtohead.png` on completion.
 - Memorization-curve figure (4.3) as train/test-vs-steps (currently endpoints):
   needs short h>0 re-train with per-step eval logging — blocked on GPU.
