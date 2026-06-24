@@ -49,11 +49,37 @@ causes memorization, not generalization.
 
 ## 2. Related work
 
-EarthquakeNPP (the benchmark and its five reference NPPs: DeepSTPP, AutoSTPP,
-NSTPP, SMASH, DSTPP); RECAST (temporal-only deep forecasting); ETAS (Mizrahi
-et al. `etas` package). Generative NPPs such as SMASH and DSTPP lack a
-tractable likelihood and cannot be magnitude-tested under CSEP; FlowQuake's
-Gutenberg–Richter head restores the full N/S/M evaluation.
+**ETAS and operational forecasting.** ETAS originates with Ogata's temporal
+self-exciting model [Ogata 1988] and its space–time extension [Ogata 1998];
+it underpins operational and pseudo-prospective forecasting and the CSEP
+testing experiments. We use the maximum-likelihood inversion and
+catalog-continuation simulator of Mizrahi et al. [2021] (the `etas` package) as
+our incumbent, both for per-event likelihoods and for the CSEP head-to-head.
+
+**Neural point processes on EarthquakeNPP.** The EarthquakeNPP benchmark
+[Stockman et al.] assembles California catalogs with fixed train/test windows
+and evaluates five NPPs — DeepSTPP, AutoSTPP, NSTPP, and the generative SMASH
+and DSTPP — finding that none beats ETAS on total or spatial log-likelihood on
+any dataset. The two limitations it identifies — fixed-window encoders (e.g.
+DeepSTPP conditions on a short event window) and the absence of the
+Omori/Gutenberg–Richter structure ETAS hard-codes — motivate FlowQuake's
+whole-catalog SSM encoder and its structured, observation-anchored heads.
+RECAST [Dascher-Cousineau et al. 2023] is a strong temporal-only deep
+forecaster; FlowQuake instead targets the full marked, spatial problem.
+The generative models (SMASH, DSTPP) sample catalogs but expose no tractable
+per-event density, so they cannot report tll/sll/nll; the benchmark's
+spatio-temporal NPPs do not forecast magnitudes, so they cannot be CSEP
+magnitude-tested. FlowQuake provides both.
+
+**Method ingredients.** The temporal head is a conditional rectified
+flow / flow-matching model [Lipman et al. 2023]; the encoder is a
+pure-PyTorch Mamba-2-style selective state-space scan [Gu & Dao 2023; Dao & Gu
+2024]. Forecasts are scored with the CSEP consistency-test framework
+[Schorlemmer et al. 2007; Zechar et al. 2010] via pyCSEP [Savran et al. 2022].
+
+*(Bibliographic details for [Stockman et al.] (EarthquakeNPP venue/year) and the
+exact entries for the five reference NPPs are to be finalized against the
+benchmark's published bibliography before submission.)*
 
 ## 3. Methods
 
@@ -223,16 +249,56 @@ FlowQuake is the first NPP to beat ETAS temporally with multi-seed statistical
 significance across the EarthquakeNPP California suite, with full CSEP
 consistency including the magnitude test, and
 it comes with a controlled explanation of the field's long-standing
-NPP-vs-ETAS gap. Future work: closing the sub-km spatial gap, a same-days
-ETAS-vs-FlowQuake CSEP comparison, and a neural Coulomb-stress spatial kernel.
+NPP-vs-ETAS gap. Future work: closing the sub-km spatial gap and a neural
+Coulomb-stress spatial kernel.
+
+## References
+
+*Core entries verified; those marked [verify] need bibliographic confirmation
+against the cited source before submission.*
+
+- Ogata, Y. (1988). Statistical models for earthquake occurrences and residual
+  analysis for point processes. *J. Amer. Statist. Assoc.* 83(401), 9–27.
+- Ogata, Y. (1998). Space–time point-process models for earthquake occurrences.
+  *Ann. Inst. Statist. Math.* 50(2), 379–402.
+- Mizrahi, L., Nandan, S., Wiemer, S. (2021). Embracing data incompleteness for
+  better earthquake forecasting. *J. Geophys. Res. Solid Earth*,
+  doi:10.1029/2021JB022379. (the `etas` package)
+- Schorlemmer, D., Gerstenberger, M. C., Wiemer, S., Jackson, D. D., Rhoades,
+  D. A. (2007). Earthquake likelihood model testing. *Seismol. Res. Lett.*
+  78(1), 17–29.
+- Zechar, J. D., Gerstenberger, M. C., Rhoades, D. A. (2010). Likelihood-based
+  tests for evaluating space–rate–magnitude earthquake forecasts. *Bull.
+  Seismol. Soc. Am.* 100(3), 1184–1195.
+- Savran, W. H., Bayona, J. A., Iturrieta, P., et al. (2022). pyCSEP: A Python
+  toolkit for earthquake forecast developers. *Seismol. Res. Lett.* 93(5).
+- Lipman, Y., Chen, R. T. Q., Ben-Hamu, H., Nickel, M., Le, M. (2023). Flow
+  matching for generative modeling. *ICLR*.
+- Gu, A., Dao, T. (2023). Mamba: Linear-time sequence modeling with selective
+  state spaces. *arXiv:2312.00752*. Dao, T., Gu, A. (2024). Transformers are
+  SSMs (Mamba-2). *ICML*.
+- Dascher-Cousineau, K., Shchur, O., Brodsky, E. E., Günnemann, S. (2023).
+  Using deep learning for flexible and scalable earthquake forecasting (RECAST).
+  *Geophys. Res. Lett.* [verify].
+- Stockman, S., et al. EarthquakeNPP: A benchmark for neural point-process
+  earthquake forecasting. [verify venue/year/authors].
+- Reference NPPs (cite per the benchmark): DeepSTPP, AutoSTPP, NSTPP, SMASH,
+  DSTPP. [verify].
 
 ---
 
 ### Open items before submission
 - ETAS through the same pyCSEP path → same-days N/S/M head-to-head: harness
   built (`flowquake/etas_csep.py`), validated end-to-end, 100-day run in
-  progress (10³ sims/day on a cloud CPU instance). Fill §4.2 table + add
+  progress (10³ sims/day on a cloud CPU instance). Fill §4.2 ETAS column + add
   `fig_csep_headtohead.png` on completion.
-- Memorization-curve figure (4.3) as train/test-vs-steps (currently endpoints):
-  needs short h>0 re-train with per-step eval logging — blocked on GPU.
+- Finalize the bibliography: confirm [verify]-marked entries (EarthquakeNPP and
+  the five reference NPPs) against the benchmark's published references. [USER]
 - Decide venue (Seismica / GRL) and convert to the house format. [USER]
+
+*Done in the pre-submission audit pass: §4.3 made reproducible
+(`scripts/memorization_eval.py`) with the divergence-curve figure
+(`fig_memorization_curve.png`); headline novelty claim narrowed to the
+multi-seed-significant suite-wide statement; S-test denominator corrected to 91
+evaluable days; full-suite summary made reproducible
+(`scripts/aggregate_fullsuite.py`); §2 + references added.*
