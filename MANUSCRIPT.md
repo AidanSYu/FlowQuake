@@ -136,13 +136,18 @@ Any learned global embedding lets the heads memorize the training catalog
 Relational, observation-anchored conditioning (h=0) closes the gap to 0.34.
 This is the mechanism behind NPPs' benchmark underperformance.
 
-### 4.4 The residual spatial gap is sub-kilometre over-smoothing
+### 4.4 Localizing and partly closing the spatial gap
 
-Stratifying the per-event spatial deficit, the entire net gap to ETAS lives in
-events whose nearest recent neighbour is <1 km (dense clusters: Geysers,
-Ridgecrest, Salton Sea); at 1–5 km FlowQuake beats ETAS. A density-adaptive
-kernel bandwidth (N1) recovers part of it (ComCat sll −9.091 → −9.059, nll
-7.605 → 7.572, 3-seed).
+Stratifying the per-event spatial deficit by nearest-recent-neighbour distance
+(min distance to the previous 64 events — the quantity the kernel mixture is
+built on) shows the base model over-smooths most severely for tightly-clustered
+events (dense zones: Geysers, Ridgecrest, Salton Sea). The density-adaptive
+bandwidth (N1) targets exactly this: the <0.5 km deficit shrinks from −0.218 to
+−0.062 nat/event (Fig. spatial_gap), confirming the diagnosis, and the 2–10 km
+band improves too. Aggregate: ComCat sll −9.091 → −9.059, nll 7.605 → 7.572
+(3-seed). The residual deficit is broadly distributed (largest per-event at
+2–10 km), so no single bandwidth change closes it — consistent with ETAS
+retaining a spatial edge built from its full parametric kernel.
 
 ## 5. Discussion
 
