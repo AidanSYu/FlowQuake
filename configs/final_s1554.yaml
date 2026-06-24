@@ -45,9 +45,9 @@ train:
   weight_decay: 0.03
   warmup: 500
   grad_clip: 1.0
-  seed: 1553
+  seed: 1554
   val_every: 250
   val_events: 4096
   val_ode_steps: 32
   patience: 16
-  out_dir: runs/comcat25
+  out_dir: runs/final_s1554

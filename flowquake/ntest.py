@@ -31,12 +31,14 @@ MAX_REJECTION_ROUNDS = 200
 
 
 @torch.no_grad()
-def simulate_daily_counts(
+def simulate_day_events(
     model, cat, day_start_days: float, n_sims: int, device, sample_steps: int = 16
-) -> np.ndarray:
-    """Sample next-day event counts from the model.
-
-    day_start_days: forecast day start, in catalog days (same clock as cat.t_days).
+) -> list[np.ndarray]:
+    """Sample n_sims independent 1-day continuations, returning per-simulation
+    event lists. Each entry is an (n_i, 4) array of columns [t_days, x_km,
+    y_km, magnitude]. The catalog-based CSEP forecast is exactly this set of
+    simulated catalogs; simulate_daily_counts() is the count-only wrapper used
+    by the temporal N-test.
     """
     day_end = day_start_days + 1.0
     n_hist = int(np.searchsorted(cat.t_days, day_start_days, side="left"))
@@ -70,9 +72,9 @@ def simulate_daily_counts(
     y_buf = _mk_buf(cat.raw[:, 2].numpy(), torch.float32)
     m_buf = _mk_buf(cat.raw[:, 3].numpy(), torch.float32)
 
-    counts = torch.zeros(n_sims, dtype=torch.long, device=device)
     active = torch.ones(n_sims, dtype=torch.bool, device=device)
     first = True
+    rec_t, rec_x, rec_y, rec_m, rec_live = [], [], [], [], []  # per-step records
 
     # Big-trigger components held static over the 1-day horizon.
     static_big = cat.lastk[n_hist - 1, 64:].unsqueeze(0).expand(n_sims, -1, -1) \
@@ -104,13 +106,18 @@ def simulate_daily_counts(
 
         t_next = t_last + tau
         live = active & (t_next < day_end)
-        counts += live.long()
+        m = torch.clamp(m, min=model.stats["mcut"])
+        # Record this step's emitted events (lanes that are live).
+        rec_t.append(t_next.detach().cpu().numpy().copy())
+        rec_x.append(x.detach().cpu().numpy().copy())
+        rec_y.append(y.detach().cpu().numpy().copy())
+        rec_m.append(m.detach().cpu().numpy().copy())
+        rec_live.append(live.detach().cpu().numpy().copy())
         active = live
         if not active.any():
             break
 
         # Append the sampled event and advance the encoder one step.
-        m = torch.clamp(m, min=model.stats["mcut"])
         feat = model.build_token(
             tau, x, y, m, t_next.double(), (t_buf, x_buf, y_buf, m_buf)
         ).to(tok_last.dtype)
@@ -136,7 +143,22 @@ def simulate_daily_counts(
         m_buf = _push(m_buf, m)
         t_last = torch.where(active, t_next, t_last)
 
-    return counts.cpu().numpy()
+    # Assemble per-simulation event lists from the step records.
+    events = [[] for _ in range(n_sims)]
+    for st_t, st_x, st_y, st_m, st_live in zip(rec_t, rec_x, rec_y, rec_m, rec_live):
+        idx = np.flatnonzero(st_live)
+        for i in idx:
+            events[i].append((st_t[i], st_x[i], st_y[i], st_m[i]))
+    return [np.array(e, dtype=np.float64).reshape(-1, 4) for e in events]
+
+
+@torch.no_grad()
+def simulate_daily_counts(
+    model, cat, day_start_days: float, n_sims: int, device, sample_steps: int = 16
+) -> np.ndarray:
+    """Next-day event counts per simulation (temporal N-test)."""
+    events = simulate_day_events(model, cat, day_start_days, n_sims, device, sample_steps)
+    return np.array([len(e) for e in events], dtype=np.int64)
 
 
 def main(argv=None):
