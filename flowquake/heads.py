@@ -121,6 +121,12 @@ class KernelMixtureHead(nn.Module):
         w = log_w.exp()
         if kde_sampler is None:
             w[:, -1] = 0.0  # no kde map available
+        # Robustness for long autoregressive simulation: a NaN/inf anywhere in
+        # the conditioning would poison the logits and trip a multinomial
+        # device-side assert. Sanitize and guarantee a valid distribution by
+        # flooring the uniform-background component (index n_comp).
+        w = torch.nan_to_num(w, nan=0.0, posinf=0.0, neginf=0.0)
+        w[:, self.n_comp] = w[:, self.n_comp].clamp(min=1e-6)
         choice = torch.multinomial(w, 1).squeeze(-1)               # (B,)
         idx = choice.clamp(max=self.n_comp - 1)
         gather = lambda t: t.gather(1, idx.view(-1, 1)).squeeze(1)

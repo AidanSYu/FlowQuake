@@ -258,7 +258,13 @@ class FlowQuakeTPP(nn.Module):
                                (st["bg_xmin"], st["bg_ymin"], st["bg_xmax"], st["bg_ymax"]),
                                kde_sampler=self._kde_sampler(cond.device))
         m = self.head_m.sample(cond, st["mcut"]).clamp(max=8.5)
-        return tau, s[:, 0], s[:, 1], m
+        # Clamp to sane physical ranges so no extreme/NaN sample propagates into
+        # the next step's features during multi-step simulation.
+        tau = torch.nan_to_num(tau, nan=1.0).clamp(TAU_FLOOR_DAYS, 60.0)
+        x = torch.nan_to_num(s[:, 0], nan=st["x_mean"]).clamp(st["bg_xmin"], st["bg_xmax"])
+        y = torch.nan_to_num(s[:, 1], nan=st["y_mean"]).clamp(st["bg_ymin"], st["bg_ymax"])
+        m = torch.nan_to_num(m, nan=st["mcut"]).clamp(st["mcut"], 8.5)
+        return tau, x, y, m
 
     def build_token(self, tau_days, x, y, m, t_next, bufs):
         """Physical next-event attributes -> normalized token (B, D_IN).
