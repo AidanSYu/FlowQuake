@@ -103,7 +103,7 @@ FlowQuake's temporal log-likelihood exceeds ETAS on all five catalogs
 |---|---|---|---|---|---|---|
 | ComCat_25 | 2.5 | 1.4868 ± 0.0008 | 1.4343 | +0.053 | −9.06 | −8.69 |
 | WHITE_06 | 0.6 | 2.0669 ± 0.0007 | 2.0211 | +0.046 | −4.73 | −4.26 |
-| SanJac_10 | 1.0 | 1.1610 ± 0.0009 | 1.1325 | +0.029 | −5.92 | −5.40 |
+| SanJac_10 | 1.0 | 1.1610 ± 0.0009 | 1.1325 | +0.028 | −5.92 | −5.40 |
 | SaltonSea_10 | 1.0 | 2.4337 ± 0.0070 | 2.3320 | +0.102 | −2.64 | −2.32 |
 | SCEDC_20 | 2.0 | 2.6194 ± 0.0031 | 2.5410 | +0.078 | −7.85 | −7.53 |
 
@@ -120,20 +120,21 @@ statistically significant over multiple seeds on *every* catalog of the suite
 ### 4.2 CSEP consistency (ComCat, 100 forecast days × 10⁴ catalogs)
 
 The production (density-adaptive, N1) model — the same model that produces the
-per-event likelihoods in §4.1 — passes all three CSEP consistency tests at the
-expected rate:
+per-event likelihoods in §4.1 — is CSEP-consistent on all three tests (a day is
+consistent at the two-sided 95% level iff min(δ₁,δ₂) ≥ 0.025; days on which a
+test is not evaluable are excluded):
 
-| test | days evaluated | pass @95% |
-|---|---|---|
-| Number (N) | 100 | 95% |
-| Spatial (S) | 92 | 92% |
-| Magnitude (M) | 92 | 98% |
+| test | days evaluated | consistent | rate |
+|---|---|---|---|
+| Number (N) | 100 | 95 | 95% |
+| Spatial (S) | 91 | 85 | 93% |
+| Magnitude (M) | 92 | 90 | 98% |
 
-FlowQuake produces CSEP-consistent forecasts. A forecast that passes ~95% of
-days at α=0.05 is, by construction, consistent; mild S-test over-rejection
-(8% vs the nominal 5%) reflects the residual sub-km over-smoothing localized in
-§4.4. The density-adaptive kernel improves the S-test relative to the base model
-(88% → 92%), consistent with its per-event spatial gain. The magnitude test is
+The N- and M-test rejection rates (5% and 2%) sit at or below the nominal 5%.
+The S-test rejects slightly more often than nominal (7%), the signature of the
+residual sub-kilometre over-smoothing localized in §4.4; the density-adaptive
+kernel reduces this relative to the base model (S 88% → 93%), consistent with
+its per-event spatial gain. The magnitude test is
 enabled by the Gutenberg–Richter head and cannot be run for likelihood-free
 generative NPPs (SMASH, DSTPP), making the full N/S/M evaluation unique to
 FlowQuake among neural point processes.
@@ -142,7 +143,7 @@ FlowQuake among neural point processes.
 consistency result against the incumbent, we ran the benchmark's fitted ETAS
 model (Mizrahi et al. `etas`) through the *same* pyCSEP path on the *same*
 forecast days: for each day we condition the fitted ETAS on the observed
-history up to the forecast start, simulate 2×10³ one-day catalog continuations,
+history up to the forecast start, simulate 10³ one-day catalog continuations,
 and score them with the identical region, magnitude bins, observed-catalog
 filtering, and consistency criterion used for FlowQuake. This is, to our
 knowledge, the first NPP-vs-ETAS comparison in which both models are evaluated
@@ -155,7 +156,7 @@ likelihoods.
 | test | FlowQuake (N1) | ETAS | reading |
 |---|---|---|---|
 | Number (N) | 95/100 | _TBD_ | both calibrated |
-| Spatial (S) | 85/92 | _TBD_ | — |
+| Spatial (S) | 85/91 | _TBD_ | — |
 | Magnitude (M) | 90/92 | _TBD_ | — |
 
 The head-to-head shows that FlowQuake's forecasts are CSEP-consistent at a level
@@ -213,8 +214,9 @@ problem, not a fundamental barrier.
 
 ## 6. Conclusion
 
-FlowQuake is the first NPP to beat ETAS temporally across the EarthquakeNPP
-California suite, with full CSEP consistency including the magnitude test, and
+FlowQuake is the first NPP to beat ETAS temporally with multi-seed statistical
+significance across the EarthquakeNPP California suite, with full CSEP
+consistency including the magnitude test, and
 it comes with a controlled explanation of the field's long-standing
 NPP-vs-ETAS gap. Future work: closing the sub-km spatial gap, a same-days
 ETAS-vs-FlowQuake CSEP comparison, and a neural Coulomb-stress spatial kernel.
@@ -224,7 +226,7 @@ ETAS-vs-FlowQuake CSEP comparison, and a neural Coulomb-stress spatial kernel.
 ### Open items before submission
 - ETAS through the same pyCSEP path → same-days N/S/M head-to-head: harness
   built (`flowquake/etas_csep.py`), validated end-to-end, 100-day run in
-  progress (2×10³ sims/day, 28-CPU cloud instance). Fill §4.2 table + add
+  progress (10³ sims/day on a cloud CPU instance). Fill §4.2 table + add
   `fig_csep_headtohead.png` on completion.
 - Memorization-curve figure (4.3) as train/test-vs-steps (currently endpoints):
   needs short h>0 re-train with per-step eval logging — blocked on GPU.

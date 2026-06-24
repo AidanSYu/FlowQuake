@@ -37,34 +37,37 @@ conference (the benchmark itself only reached TMLR).
   21,889 scored events are *identical* to ETAS's set (perfect intersection).
 
 ### Full-suite temporal result (THE headline) — FlowQuake N1 vs ETAS, per-event LL
+FQ values are 3-seed means (runs/fullsuite_summary.json); ETAS from ll_scores.
 | dataset | mc | FQ tll | ETAS tll | temporal | FQ sll | ETAS sll | FQ nll | ETAS nll |
 |---|---|---|---|---|---|---|---|---|
-| ComCat_25 | 2.5 | 1.488 | 1.434 | **WIN** | −9.054 | −8.690 | 7.566 | 7.255 |
-| WHITE_06 | 0.6 | 2.068 | 2.021 | **WIN** | −4.727 | −4.261 | 2.659 | 2.240 |
-| SanJac_10 | 1.0 | 1.162 | 1.133 | **WIN** | −5.919 | −5.398 | 4.758 | 4.266 |
-| SaltonSea_10 | 1.0 | 2.435 | 2.332 | **WIN** | −2.639 | −2.315 | 0.203 | −0.017 |
-| SCEDC_20 | 2.0 | 2.619 | 2.541 | **WIN** | −7.847 | −7.534 | 5.228 | 4.993 |
+| ComCat_25 | 2.5 | 1.487 | 1.434 | **WIN** | −9.059 | −8.690 | 7.572 | 7.255 |
+| WHITE_06 | 0.6 | 2.067 | 2.021 | **WIN** | −4.726 | −4.261 | 2.659 | 2.240 |
+| SanJac_10 | 1.0 | 1.161 | 1.133 | **WIN** | −5.923 | −5.398 | 4.762 | 4.266 |
+| SaltonSea_10 | 1.0 | 2.434 | 2.332 | **WIN** | −2.638 | −2.315 | 0.204 | −0.017 |
+| SCEDC_20 | 2.0 | 2.619 | 2.541 | **WIN** | −7.848 | −7.534 | 5.229 | 4.993 |
 
 FlowQuake beats ETAS **temporally on all five** California EarthquakeNPP catalogs
 (operational statewide + dense fault-zone + Salton Sea swarm); ETAS keeps the
 **spatial** edge on all five (consistent, characterized: sub-km over-smoothing).
-**3-seed, win exceeds 2σ on every dataset** (ΔtLL +0.029 to +0.102; smallest
-margin SanJac +0.0285 ± 0.0009). First NPP to beat ETAS temporally across the
-suite. Figures: `figures/fig_fullsuite.png`, `fig_memorization.png`,
-`fig_spatial_gap.png`, `fig_csep.png`.
+**3-seed, win exceeds 2σ on every dataset** (ΔtLL +0.028 to +0.102; smallest
+margin SanJac +0.0285 ± 0.0009). First NPP with a multi-seed-significant
+temporal win across the suite. Figures: `figures/fig_fullsuite.png`,
+`fig_memorization.png`, `fig_memorization_curve.png`, `fig_spatial_gap.png`,
+`fig_csep.png`, `fig_csep_headtohead.png`.
 
-### CSEP consistency — PRODUCTION N1 model (100 forecast days × 10k sims)
+### CSEP consistency — PRODUCTION N1 model (100 forecast days × 10⁴ sims)
 | test | pass rate @95% | reading |
 |---|---|---|
-| N (number) | 95/100 = 95% | perfectly calibrated |
-| S (spatial) | 85/92 = 92% | consistent; N1 improves on canonical's 88% (sub-km) |
+| N (number) | 95/100 = 95% | calibrated |
+| S (spatial) | 85/91 = 93% | consistent; 1 day unevaluable (NaN) excluded; N1 > canonical 88% |
 | M (magnitude) | 90/92 = 98% | excellent; uniquely enabled by the GR head |
 
-CSEP now run on the same N1 production model as §4.1 per-event LL (was canonical
-S 88%; N1's density-adaptive kernel lifts S to 92%, matching its per-event
-spatial gain). A forecast passing ~95% of days at α=0.05 *is* CSEP-consistent.
-(M1) `runs/n1_density/csep`. **TODO**: ETAS through the same pyCSEP path for a
-same-days head-to-head (scoped out — low EV, ETAS also ~consistent).
+CSEP run on the same N1 production model as §4.1 per-event LL (was canonical
+S 88%; N1's density-adaptive kernel lifts S to 93%, matching its per-event
+spatial gain). Pass = min(δ₁,δ₂) ≥ 0.025; unevaluable days (NaN observed)
+excluded from the denominator. (M1) `runs/n1_density/csep`. ETAS-vs-FQ
+head-to-head through the SAME pyCSEP path: in progress (flowquake/etas_csep.py,
+cloud CPU, 10³ sims/day).
 
 ### Memorization mechanism (the strongest single result)
 Ablation over the whole-catalog embedding bottleneck h, train-subsample vs test

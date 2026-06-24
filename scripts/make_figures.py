@@ -147,8 +147,15 @@ def _min_tail(q):
     pyCSEP stores each test quantile as a pair; a day is consistent at the two-
     sided 95% level iff min ≥ 0.025. For S/M the pair sums to 1 (so this is just
     0.025≤γ≤0.975); for the discrete N-test, integer-count ties make δ₁+δ₂>1, so
-    min(δ₁,δ₂) is the correct tie-aware statistic (and what the table reports)."""
-    return min(q) if isinstance(q, (list, tuple)) else min(q, 1.0 - q)
+    min(δ₁,δ₂) is the correct tie-aware statistic (and what the table reports).
+    Returns None for unevaluable days (NaN or the (-1,-1) sentinel)."""
+    if isinstance(q, (list, tuple)):
+        if any(v != v for v in q) or min(q) < -0.5:
+            return None
+        return min(q)
+    if q != q or q < -0.5:
+        return None
+    return min(q, 1.0 - q)
 
 
 def fig_csep():
@@ -157,7 +164,8 @@ def fig_csep():
     panels = [("N", "Number"), ("S", "Spatial"), ("M", "Magnitude")]
     fig, axes = plt.subplots(1, 3, figsize=(10.5, 3.4))
     for ax, (key, title) in zip(axes, panels):
-        v = np.sort([_min_tail(d[key]["quantile"]) for d in res if key in d])
+        v = np.sort([m for d in res if key in d
+                     for m in [_min_tail(d[key]["quantile"])] if m is not None])
         ax.axhspan(0.025, 0.5, color="#DDE8DD", label="consistent (95%)")
         ax.plot(np.arange(len(v)), v, "o", ms=3, color="#4C72B0")
         ax.axhline(0.025, ls="--", c="#C44E52", lw=1)
@@ -198,11 +206,17 @@ def fig_csep_headtohead():
     print("\nCSEP head-to-head (same days, same harness, min(δ₁,δ₂)≥0.025):")
     print(f"{'test':>9} | {'FlowQuake':>12} | {'ETAS':>12}")
     for ax, (key, title) in zip(axes, panels):
-        # paired days where both models have the test
-        days = [d for d in fq_by_day
-                if key in fq_by_day[d] and key in et_by_day.get(d, {})]
-        fq_v = np.array([_min_tail(fq_by_day[d][key]["quantile"]) for d in days])
-        et_v = np.array([_min_tail(et_by_day[d][key]["quantile"]) for d in days])
+        # paired days where the test is evaluable for BOTH models
+        days, fq_l, et_l = [], [], []
+        for d in fq_by_day:
+            if key not in fq_by_day[d] or key not in et_by_day.get(d, {}):
+                continue
+            mf = _min_tail(fq_by_day[d][key]["quantile"])
+            me = _min_tail(et_by_day[d][key]["quantile"])
+            if mf is None or me is None:
+                continue
+            days.append(d); fq_l.append(mf); et_l.append(me)
+        fq_v = np.array(fq_l); et_v = np.array(et_l)
         order = np.argsort(fq_v)
         ax.axhspan(0.025, 0.5, color="#DDE8DD", label="consistent (95%)")
         ax.axhline(0.025, ls="--", c="#888", lw=0.8)

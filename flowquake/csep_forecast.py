@@ -245,7 +245,13 @@ def csep_summary(results):
         if q is None:
             return None
         if isinstance(q, (list, tuple)):
+            # NaN or the (-1,-1) sentinel = the test was not evaluable that day
+            # (e.g. observed statistic NaN); exclude from the denominator.
+            if any(v != v for v in q) or min(q) < -0.5:
+                return None
             return bool(min(q) >= 0.025)
+        if q != q or q < -0.5:
+            return None
         return bool(q >= 0.025)
     out = {}
     for key in ["N", "S", "M"]:
