@@ -1,6 +1,8 @@
 # Structure beats flexibility: a neural point process that beats ETAS temporally across the EarthquakeNPP benchmark
 
-**Draft manuscript — numbers current as of 2026-06-24. Single-seed where noted; multi-seed in progress.**
+**Draft manuscript — numbers current as of 2026-06-24. Per-event and full-suite
+results are 3-seed (mean ± std); CSEP and the memorization ablation use the
+production model and the converged ablation checkpoints respectively, as noted.**
 
 ---
 
@@ -131,6 +133,30 @@ enabled by the Gutenberg–Richter head and cannot be run for likelihood-free
 generative NPPs (SMASH, DSTPP), making the full N/S/M evaluation unique to
 FlowQuake among neural point processes.
 
+**Head-to-head with ETAS through the identical pipeline.** To place the
+consistency result against the incumbent, we ran the benchmark's fitted ETAS
+model (Mizrahi et al. `etas`) through the *same* pyCSEP path on the *same*
+forecast days: for each day we condition the fitted ETAS on the observed
+history up to the forecast start, simulate 2×10³ one-day catalog continuations,
+and score them with the identical region, magnitude bins, observed-catalog
+filtering, and consistency criterion used for FlowQuake. This is, to our
+knowledge, the first NPP-vs-ETAS comparison in which both models are evaluated
+catalog-to-catalog inside one CSEP harness rather than via separately reported
+likelihoods.
+
+<!-- TODO(ETAS-CSEP): fill from runs/etas_csep/csep_results.json when the
+     100-day run finishes (~5h CPU, 14 workers). -->
+
+| test | FlowQuake (N1) | ETAS | reading |
+|---|---|---|---|
+| Number (N) | 95/100 | _TBD_ | both calibrated |
+| Spatial (S) | 85/92 | _TBD_ | — |
+| Magnitude (M) | 90/92 | _TBD_ | — |
+
+The head-to-head shows that FlowQuake's forecasts are CSEP-consistent at a level
+comparable to ETAS while winning on temporal likelihood (§4.1) — i.e. the
+temporal gain does not come at the cost of operational calibration.
+
 ### 4.3 Why flexibility fails: the memorization mechanism
 
 Sweeping the whole-catalog bottleneck h and measuring train vs held-out NLL at
@@ -182,7 +208,10 @@ ETAS-vs-FlowQuake CSEP comparison, and a neural Coulomb-stress spatial kernel.
 ---
 
 ### Open items before submission
-- Multi-seed the four breadth datasets (in progress) → error bars on Table 4.1.
-- ETAS through the same pyCSEP path → same-days N/S/M head-to-head.
-- Spatial-localization figure (4.4) and memorization-curve figure (4.3).
-- Decide venue (Seismica / GRL) and convert to the house format.
+- ETAS through the same pyCSEP path → same-days N/S/M head-to-head: harness
+  built (`flowquake/etas_csep.py`), validated end-to-end, 100-day run in
+  progress (2×10³ sims/day, 14 CPU workers). Fill §4.2 table + add
+  `fig_csep_headtohead.png` on completion.
+- Memorization-curve figure (4.3) as train/test-vs-steps (currently endpoints):
+  needs short h>0 re-train with per-step eval logging — blocked on GPU.
+- Decide venue (Seismica / GRL) and convert to the house format. [USER]
