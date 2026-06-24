@@ -17,6 +17,9 @@ class DataConfig:
     val_start: str = "1998-01-01"
     test_start: str = "2007-01-01"
     test_end: str = "2020-01-17"
+    n_near: int = 0              # near-trigger tier: K nearest prior events
+    near_rmax_km: float = 30.0   # search radius for the near tier
+    adaptive_bg: bool = False    # variable-bandwidth smoothed-seismicity background
 
 
 @dataclass

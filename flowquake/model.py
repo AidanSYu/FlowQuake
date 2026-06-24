@@ -65,8 +65,10 @@ class FlowQuakeTPP(nn.Module):
         spatial_density_feat: bool = False,  # N1: local-density kernel feature
         density_radius_km: float = 2.0,
         d_floor_km: float = 0.25,
+        mix_k: int | None = None,   # total mixture components (default MIX_K)
     ):
         super().__init__()
+        mix_k = MIX_K if mix_k is None else mix_k
         self.h_bottleneck = h_bottleneck
         self.h_noise = h_noise
         self.use_density_feat = spatial_density_feat
@@ -84,7 +86,7 @@ class FlowQuakeTPP(nn.Module):
                                n_layers=flow_layers, sigma_min=sigma_min[0],
                                dropout=dropout)
         self.head_s = KernelMixtureHead(
-            cond_dim, n_comp=MIX_K, hidden=mix_hidden,
+            cond_dim, n_comp=mix_k, hidden=mix_hidden,
             comp_feat_dim=4 if spatial_density_feat else 3, d_floor_km=d_floor_km,
         )
         self.head_m = GRMagnitudeHead(cond_dim)

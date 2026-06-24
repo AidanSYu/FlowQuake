@@ -73,6 +73,83 @@ def big_trigger_matrix(t_days: np.ndarray, x: np.ndarray, y: np.ndarray,
     return out
 
 
+def near_trigger_matrix(t_days: np.ndarray, x: np.ndarray, y: np.ndarray,
+                        m: np.ndarray, n_near: int, rmax_km: float = 30.0,
+                        query_k: int = 512) -> np.ndarray:
+    """Per event i: the n_near spatially-NEAREST PRIOR events within rmax_km
+    (events j < i), over the *whole* history. Layout (E, n_near, 4) raw
+    [x, y, log_dt, m], null-padded with an ancient far-decayed component.
+
+    The last-K (recency) tier spans only ~70 days at the catalog's average
+    rate, so aftershocks of older moderate (< M4.5) mainshocks land outside it
+    and ETAS — which integrates triggering over all history — scores them far
+    better. This tier restores that coverage: it supplies the colocated older
+    triggers (64% of ComCat events recur within 0.5 km of a prior event, and
+    85% of those are outside the last-K window). Selection is purely spatial;
+    the head's MLP reweights each by its [recency, mag, distance] features.
+    """
+    from scipy.spatial import cKDTree
+
+    E = len(t_days)
+    out = np.empty((E, n_near, 4), dtype=np.float32)
+    null_row = np.array(
+        [x[0], y[0], np.log(BIG_WINDOW_DAYS * 100.0), 0.0], dtype=np.float32
+    )
+    out[:] = null_row
+    pts = np.column_stack([x, y])
+    tree = cKDTree(pts)
+    qk = min(query_k, E)
+    for s in range(0, E, 8192):                       # batch to cap memory
+        e = min(s + 8192, E)
+        dist, nbr = tree.query(pts[s:e], k=qk)
+        for r, i in enumerate(range(s, e)):
+            cand, dd = nbr[r], dist[r]
+            keep = (cand < i) & (dd < rmax_km)        # prior in time, within rmax
+            cc = cand[keep][:n_near]                   # already distance-sorted
+            n = len(cc)
+            if n == 0:
+                continue
+            out[i, :n, 0] = x[cc]
+            out[i, :n, 1] = y[cc]
+            out[i, :n, 2] = np.log(np.clip(t_days[i] - t_days[cc], TAU_FLOOR_DAYS, None))
+            out[i, :n, 3] = m[cc]
+    return out
+
+
+def adaptive_bg_grid(x, y, stats, k=6, sigma_min=1.0, sigma_max=60.0,
+                     floor=0.03, n_buckets=12, bin_km=2.0):
+    """Helmstetter et al. (2007) variable-bandwidth smoothed-seismicity map.
+
+    Each event is smoothed with sigma_i = clamp(distance to its k-th nearest
+    neighbour): dense fault traces stay sharp, isolated events spread wide, so
+    off-fault density never collapses to the floor (the failure mode of the
+    fixed-bandwidth KDE). Standard background method, not ETAS-specific.
+    Returns log-density per km^2 on the same grid the fixed KDE used.
+    """
+    from scipy.ndimage import gaussian_filter
+    from scipy.spatial import cKDTree
+
+    nx = int(np.ceil((stats["bg_xmax"] - stats["bg_xmin"]) / bin_km))
+    ny = int(np.ceil((stats["bg_ymax"] - stats["bg_ymin"]) / bin_km))
+    pts = np.column_stack([x, y])
+    dk, _ = cKDTree(pts).query(pts, k=min(k + 1, len(pts)))
+    sig = np.clip(dk[:, -1], sigma_min, sigma_max)
+    gx = np.clip(((x - stats["bg_xmin"]) / bin_km).astype(int), 0, nx - 1)
+    gy = np.clip(((y - stats["bg_ymin"]) / bin_km).astype(int), 0, ny - 1)
+    edges = np.logspace(np.log10(sig.min()), np.log10(sig.max() + 1e-6), n_buckets + 1)
+    grid = np.zeros((nx, ny))
+    for b in range(n_buckets):
+        sel = (sig >= edges[b]) & (sig < edges[b + 1] if b < n_buckets - 1
+                                   else sig <= edges[b + 1])
+        if sel.any():
+            sub = np.zeros((nx, ny))
+            np.add.at(sub, (gx[sel], gy[sel]), 1.0)
+            grid += gaussian_filter(sub, sigma=np.sqrt(edges[b] * edges[b + 1]) / bin_km)
+    grid = grid / (grid.sum() * bin_km ** 2 + 1e-12)
+    grid = (1 - floor) * grid + floor / stats["bg_area"]
+    return np.log(grid).astype(np.float32)
+
+
 def recency_matrix(t_days: np.ndarray, x: np.ndarray, y: np.ndarray,
                    m: np.ndarray) -> np.ndarray:
     """ETAS-kernel raw material per event i and lag k in RECENCY_LAGS:
@@ -115,6 +192,9 @@ def load_catalog(
     val_start: str,
     test_start: str,
     test_end: str,
+    n_near: int = 0,
+    near_rmax_km: float = 30.0,
+    adaptive_bg: bool = False,
 ) -> CatalogTensors:
     df = pd.read_csv(path, parse_dates=["time"])
     df = df[df["magnitude"] >= mcut].sort_values("time").reset_index(drop=True)
@@ -149,14 +229,19 @@ def load_catalog(
     rec_n = (rec - np.asarray(stats["rec_mean"])) / np.asarray(stats["rec_std"])
 
     # Mixture components: raw [x, y, log_dt, m] of events i, i-1, .., i-K+1,
-    # then the BIG_M largest trailing-window events (long-lived triggers).
-    lastk = np.empty((len(t_days), MIX_K, 4), dtype=np.float32)
+    # the BIG_M largest trailing-window events (long-lived triggers), and
+    # optionally the n_near spatially-nearest prior events over all history
+    # (restores ETAS-style full-history triggering coverage).
+    width = MIX_K + n_near
+    lastk = np.empty((len(t_days), width, 4), dtype=np.float32)
     for j in range(LAST_K):
         lastk[:, j, 0] = _lagged(x, j)
         lastk[:, j, 1] = _lagged(y, j)
         lastk[:, j, 2] = np.log(np.clip(t_days - _lagged(t_days, j), TAU_FLOOR_DAYS, None))
         lastk[:, j, 3] = _lagged(m, j)
-    lastk[:, LAST_K:] = big_trigger_matrix(t_days, x, y, m)
+    lastk[:, LAST_K:MIX_K] = big_trigger_matrix(t_days, x, y, m)
+    if n_near > 0:
+        lastk[:, MIX_K:] = near_trigger_matrix(t_days, x, y, m, n_near, near_rmax_km)
 
     # Catalog bounding-box area (km^2) for the uniform background component.
     stats["bg_area"] = float((x.max() - x.min() + 20.0) * (y.max() - y.min() + 20.0))
@@ -169,16 +254,21 @@ def load_catalog(
     from scipy.ndimage import gaussian_filter
 
     bin_km = 2.0
-    nx = int(np.ceil((stats["bg_xmax"] - stats["bg_xmin"]) / bin_km))
-    ny = int(np.ceil((stats["bg_ymax"] - stats["bg_ymin"]) / bin_km))
-    gx = np.clip(((x[fit] - stats["bg_xmin"]) / bin_km).astype(int), 0, nx - 1)
-    gy = np.clip(((y[fit] - stats["bg_ymin"]) / bin_km).astype(int), 0, ny - 1)
-    grid = np.zeros((nx, ny))
-    np.add.at(grid, (gx, gy), 1.0)
-    grid = gaussian_filter(grid, sigma=2.0)          # ~4 km smoothing
-    grid = grid / (grid.sum() * bin_km ** 2 + 1e-12)
-    grid = 0.98 * grid + 0.02 / stats["bg_area"]
-    stats["kde_log_grid"] = np.log(grid).astype(np.float32)
+    if adaptive_bg:
+        # Variable-bandwidth smoothed seismicity: no off-fault holes for
+        # genuine-background events to fall into (fixed-bandwidth failure mode).
+        stats["kde_log_grid"] = adaptive_bg_grid(x[fit], y[fit], stats, bin_km=bin_km)
+    else:
+        nx = int(np.ceil((stats["bg_xmax"] - stats["bg_xmin"]) / bin_km))
+        ny = int(np.ceil((stats["bg_ymax"] - stats["bg_ymin"]) / bin_km))
+        gx = np.clip(((x[fit] - stats["bg_xmin"]) / bin_km).astype(int), 0, nx - 1)
+        gy = np.clip(((y[fit] - stats["bg_ymin"]) / bin_km).astype(int), 0, ny - 1)
+        grid = np.zeros((nx, ny))
+        np.add.at(grid, (gx, gy), 1.0)
+        grid = gaussian_filter(grid, sigma=2.0)          # ~4 km smoothing
+        grid = grid / (grid.sum() * bin_km ** 2 + 1e-12)
+        grid = 0.98 * grid + 0.02 / stats["bg_area"]
+        stats["kde_log_grid"] = np.log(grid).astype(np.float32)
     stats["kde_bin"] = bin_km
 
     raw = np.stack([log_tau, x, y, m], axis=1)

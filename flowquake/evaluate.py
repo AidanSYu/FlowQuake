@@ -19,8 +19,8 @@ import pandas as pd
 import torch
 
 from .config import Config
-from .data import full_sequence_batch, load_catalog
-from .train import make_model
+from .data import full_sequence_batch
+from .train import load_catalog_cfg, make_model
 
 ETAS_DIR = Path("reference/Experiments/ETAS/output_data_ComCat_25")
 
@@ -64,11 +64,7 @@ def main(argv=None):
     cfg: Config = ckpt["cfg"]
     device = torch.device(args.device)
 
-    cat = load_catalog(
-        cfg.data.catalog_path, cfg.data.mcut, cfg.data.aux_start,
-        cfg.data.train_start, cfg.data.val_start, cfg.data.test_start,
-        cfg.data.test_end,
-    )
+    cat = load_catalog_cfg(cfg)
     model = make_model(cfg, ckpt["stats"]).to(device).eval()
     model.load_state_dict(ckpt["model"])
 

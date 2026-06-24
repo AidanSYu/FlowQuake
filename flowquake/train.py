@@ -17,13 +17,26 @@ import torch
 from torch.utils.data import DataLoader
 
 from .config import Config
-from .data import CropDataset, full_sequence_batch, load_catalog
+from .data import MIX_K, CropDataset, full_sequence_batch, load_catalog
 from .model import FlowQuakeTPP
+
+
+def load_catalog_cfg(cfg: Config):
+    """load_catalog with the data-config near-trigger / background options."""
+    d = cfg.data
+    return load_catalog(
+        d.catalog_path, d.mcut, d.aux_start, d.train_start, d.val_start,
+        d.test_start, d.test_end,
+        n_near=getattr(d, "n_near", 0),
+        near_rmax_km=getattr(d, "near_rmax_km", 30.0),
+        adaptive_bg=getattr(d, "adaptive_bg", False),
+    )
 
 
 def make_model(cfg: Config, stats: dict) -> FlowQuakeTPP:
     m = cfg.model
     return FlowQuakeTPP(
+        mix_k=MIX_K + getattr(cfg.data, "n_near", 0),
         d_model=m.d_model, n_layers=m.n_layers, d_state=m.d_state,
         n_heads=m.n_heads, expand=m.expand, chunk=m.chunk,
         flow_hidden=m.flow_hidden, flow_layers=m.flow_layers,
@@ -88,11 +101,7 @@ def main(argv=None):
     out_dir.mkdir(parents=True, exist_ok=True)
     cfg.dump(out_dir / "config.yaml")
 
-    cat = load_catalog(
-        cfg.data.catalog_path, cfg.data.mcut, cfg.data.aux_start,
-        cfg.data.train_start, cfg.data.val_start, cfg.data.test_start,
-        cfg.data.test_end,
-    )
+    cat = load_catalog_cfg(cfg)
     print(f"catalog: {cat.n_events} events | train targets {cat.target_train.sum()} "
           f"| val {cat.target_val.sum()} | test {cat.target_test.sum()}")
 
