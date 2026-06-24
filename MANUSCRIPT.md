@@ -181,18 +181,27 @@ knowledge, the first NPP-vs-ETAS comparison in which both models are evaluated
 catalog-to-catalog inside one CSEP harness rather than via separately reported
 likelihoods.
 
-<!-- TODO(ETAS-CSEP): fill ETAS column from runs/etas_csep/csep_results.json
-     once the cloud run is scored locally (flowquake.csep_forecast --rerun). -->
+<!-- HEAD-TO-HEAD STATUS (2026-06-25): a first ETAS run through this harness
+     (10^3 sims/day) is NOT yet reportable. It produced anomalous ETAS scores
+     (N 73/100, all 27 failures from systematic count UNDER-prediction; S only
+     63/100 evaluable vs FlowQuake's 91). The under-prediction is not a sim-count
+     effect and points to the ETAS continuation not conditioning on post-2007
+     events as triggers (a flowquake/etas_csep harness issue); the S-evaluability
+     gap is a genuine sim-count confound (10^3 vs 10^4 -> more all-empty ETAS
+     days). FIX before reporting: (1) verify/repair trigger conditioning in
+     etas_csep; (2) match sim counts (re-score FlowQuake at 10^3, or ETAS at
+     10^4). Raw data: runs/etas_csep_pod/. Do NOT fill the table until both
+     models are on an equal, validated footing. -->
 
 | test | FlowQuake (N1) | ETAS | reading |
 |---|---|---|---|
-| Number (N) | 95/100 | _TBD_ | both calibrated |
-| Spatial (S) | 85/91 | _TBD_ | — |
-| Magnitude (M) | 90/92 | _TBD_ | — |
+| Number (N) | 95/100 | _pending validation_ | — |
+| Spatial (S) | 85/91 | _pending validation_ | — |
+| Magnitude (M) | 90/92 | _pending validation_ | — |
 
-The head-to-head shows that FlowQuake's forecasts are CSEP-consistent at a level
-comparable to ETAS while winning on temporal likelihood (§4.1) — i.e. the
-temporal gain does not come at the cost of operational calibration.
+A like-for-like ETAS comparison through this harness is left to a validated
+follow-up (see the source comment above); FlowQuake's standalone CSEP
+consistency is established in the table at the top of this section.
 
 ### 4.3 Why flexibility fails: the memorization mechanism
 
@@ -288,10 +297,13 @@ against the cited source before submission.*
 ---
 
 ### Open items before submission
-- ETAS through the same pyCSEP path → same-days N/S/M head-to-head: harness
-  built (`flowquake/etas_csep.py`), validated end-to-end, 100-day run in
-  progress (10³ sims/day on a cloud CPU instance). Fill §4.2 ETAS column + add
-  `fig_csep_headtohead.png` on completion.
+- ETAS-vs-FlowQuake CSEP head-to-head: harness built (`flowquake/etas_csep.py`)
+  and a first 100-day ETAS run completed (raw data `runs/etas_csep_pod/`), but
+  the ETAS scores are NOT yet reportable — systematic N under-prediction
+  (suspected: continuation not conditioning on post-2007 triggers) and a
+  sim-count confound (10³ vs 10⁴). Needs: fix trigger conditioning + matched
+  sim counts, then fill §4.2 and add `fig_csep_headtohead.png`. Optional
+  (paper stands without it).
 - Finalize the bibliography: confirm [verify]-marked entries (EarthquakeNPP and
   the five reference NPPs) against the benchmark's published references. [USER]
 - Decide venue (Seismica / GRL) and convert to the house format. [USER]
