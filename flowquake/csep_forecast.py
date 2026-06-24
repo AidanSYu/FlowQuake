@@ -103,6 +103,8 @@ def main(argv=None):
     ap.add_argument("--sample-steps", type=int, default=16)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--rerun", action="store_true",
+                    help="recompute N/S/M from saved CSEP_day_*.csv forecasts (no GPU)")
     args = ap.parse_args(argv)
 
     ckpt = torch.load(args.ckpt, map_location="cpu", weights_only=False)
@@ -112,11 +114,13 @@ def main(argv=None):
         cfg.data.catalog_path, cfg.data.mcut, cfg.data.aux_start,
         cfg.data.train_start, cfg.data.val_start, cfg.data.test_start, cfg.data.test_end,
     )
-    model = make_model(cfg, ckpt["stats"]).to(device).eval()
-    model.load_state_dict(ckpt["model"])
-    model.stats.setdefault("mcut", cfg.data.mcut)
-
-    xy2lonlat = fit_xy_to_lonlat(cfg.data.catalog_path)
+    if args.rerun:  # tests recompute from saved forecasts — no model/GPU needed
+        model = xy2lonlat = None
+    else:
+        model = make_model(cfg, ckpt["stats"]).to(device).eval()
+        model.load_state_dict(ckpt["model"])
+        model.stats.setdefault("mcut", cfg.data.mcut)
+        xy2lonlat = fit_xy_to_lonlat(cfg.data.catalog_path)
     region = regions.california_relm_region()
     mag_bins = regions.magnitude_bins(cfg.data.mcut, MAX_MW, DMW)
     smr = regions.create_space_magnitude_region(region, mag_bins)
@@ -143,26 +147,32 @@ def main(argv=None):
         for r in dfc.itertuples():
             f.write(f"{r.longitude:.5f},{r.latitude:.5f},{r.magnitude:.3f},"
                     f"{r.time.strftime(EPOCH)},0.0,-1,{r.id}\n")
-    observed_all = csep.load_catalog(str(obs_path))
 
     from csep.core.catalog_evaluations import number_test, spatial_test, magnitude_test
 
     results = []
     for day in days:
         start_days = test_start_days + int(day)
-        events = simulate_day_events(model, cat, start_days, args.n_sims, device,
-                                     args.sample_steps)
         day_start = t0 + dt.timedelta(days=float(start_days))
         fc_path = out_dir / f"CSEP_day_{int(day)}_.csv"
-        n_nonempty = write_forecast_csv(events, xy2lonlat, day_start, fc_path)
-        sim_counts = np.array([len(e) for e in events])
         n_obs = int(((cat.t_days >= start_days) & (cat.t_days < start_days + 1.0)).sum())
+
+        if args.rerun:  # recompute tests from a saved forecast CSV (no GPU)
+            if not fc_path.exists():
+                continue
+            n_nonempty = 1
+            sim_mean = float("nan")
+        else:
+            events = simulate_day_events(model, cat, start_days, args.n_sims, device,
+                                         args.sample_steps)
+            n_nonempty = write_forecast_csv(events, xy2lonlat, day_start, fc_path)
+            sim_mean = float(np.mean([len(e) for e in events]))
 
         fc_start = time_utils.strptime_to_utc_datetime(
             day_start.strftime("%Y-%m-%d %H:%M:%S"))
         fc_end = fc_start + dt.timedelta(days=1)
         rec = {"day": int(day), "n_obs": n_obs, "n_nonempty": int(n_nonempty),
-               "sim_mean": float(sim_counts.mean())}
+               "sim_mean": sim_mean}
 
         if n_nonempty == 0:
             rec["skipped"] = "no simulated events"
@@ -180,7 +190,10 @@ def main(argv=None):
         ]
         forecast.get_expected_rates(verbose=False)
 
-        obs = observed_all.filter_spatial(forecast.region)
+        # pyCSEP .filter* mutate in place — reload the observed catalog fresh
+        # each day so prior days' window/region filters don't shrink it.
+        obs = csep.load_catalog(str(obs_path))
+        obs = obs.filter_spatial(forecast.region)
         obs = obs.filter(f"magnitude >= {cfg.data.mcut}")
         obs = obs.filter(forecast.filters)
 
@@ -222,15 +235,18 @@ def main(argv=None):
 
 
 def csep_summary(results):
-    """Pass rates at 95% for each test. A day passes if its quantile lies in
-    [0.025, 0.975]; for tests reporting both tails (lower, upper), require the
-    interval to sit inside that band (consistent with ETAS's reporting)."""
+    """Pass rates at the two-sided 95% level (CSEP convention).
+
+    pyCSEP reports (delta1, delta2) = (P(sim>=obs), P(sim<=obs)) for the N- and
+    M-tests and a single gamma for the S-test. A forecast is consistent unless
+    the observed statistic falls in an extreme tail, i.e. pass iff every
+    reported quantile >= 0.025 (so for a (delta1, delta2) pair, min >= 0.025)."""
     def passes(q):
         if q is None:
             return None
         if isinstance(q, (list, tuple)):
-            return bool(min(q) >= 0.025 and max(q) <= 0.975)
-        return bool(0.025 <= q <= 0.975)
+            return bool(min(q) >= 0.025)
+        return bool(q >= 0.025)
     out = {}
     for key in ["N", "S", "M"]:
         flags = [passes(r[key]["quantile"]) for r in results if key in r]
