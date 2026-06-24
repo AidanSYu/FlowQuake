@@ -80,8 +80,9 @@ relational features (per-lag log-Δt, displacement, and magnitude to the last
   mixture components sit at *observed* events, they move with the data at test
   time and cannot encode a fixed memorized geography. A density-adaptive
   bandwidth lets the kernel narrow in dense clusters.
-- *Magnitude*: a conditional Gutenberg–Richter exponential, restoring the CSEP
-  magnitude test.
+- *Magnitude*: a conditional Gutenberg–Richter exponential on m − mc, evaluated
+  with a +0.005 half-bin shift for the catalog's 0.1-unit magnitude
+  discretization; restores the CSEP magnitude test.
 
 **The memorization control.** A bottleneck width h governs how much of the
 learned whole-catalog SSM embedding the heads see (h=0: relational features
@@ -134,10 +135,14 @@ The N- and M-test rejection rates (5% and 2%) sit at or below the nominal 5%.
 The S-test rejects slightly more often than nominal (7%), the signature of the
 residual sub-kilometre over-smoothing localized in §4.4; the density-adaptive
 kernel reduces this relative to the base model (S 88% → 93%), consistent with
-its per-event spatial gain. The magnitude test is
-enabled by the Gutenberg–Richter head and cannot be run for likelihood-free
-generative NPPs (SMASH, DSTPP), making the full N/S/M evaluation unique to
-FlowQuake among neural point processes.
+its per-event spatial gain. The magnitude
+test is enabled by FlowQuake's explicit Gutenberg–Richter head: CSEP's
+catalog-based tests run on any model that simulates marked catalogs, but the
+benchmark's spatio-temporal NPPs do not forecast magnitudes, so the M-test is
+not available for them. Separately, FlowQuake reports a tractable per-event
+log-likelihood (tll/sll/nll) that the likelihood-free generative NPPs (SMASH,
+DSTPP) cannot provide. Together these give FlowQuake the full per-event +
+N/S/M evaluation that no prior EarthquakeNPP entrant offers end-to-end.
 
 **Head-to-head with ETAS through the identical pipeline.** To place the
 consistency result against the incumbent, we ran the benchmark's fitted ETAS

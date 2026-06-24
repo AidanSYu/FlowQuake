@@ -12,6 +12,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest"]
+figures = ["matplotlib", "scipy"]
+# CSEP consistency tests (flowquake.csep_forecast) + the ETAS head-to-head
+# (flowquake.etas_csep). NOTE: etas is not on PyPI — install from GitHub.
+csep = ["pycsep", "scipy"]
+etas = ["etas @ git+https://github.com/lmizrahi/etas.git", "seismostats==1.0.1"]
 
 [build-system]
 requires = ["setuptools>=64"]

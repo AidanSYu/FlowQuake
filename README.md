@@ -11,10 +11,16 @@ kernels — are exactly what this stack replaces:
 - **Encoder** (`flowquake/ssm.py`): Mamba-2-style selective SSM in pure
   PyTorch (chunked SSD scan, no CUDA kernels — runs on Windows). Encodes the
   *entire* catalog history, with magnitude marks (DeepSTPP drops them).
-- **Decoder** (`flowquake/flow.py`, `flowquake/model.py`): conditional
-  rectified flows for `f(τ|h) · f(x,y|τ,h) · f(m|τ,x,y,h)`. Simulation-free
-  FM training; **exact** log-likelihood at eval via backward ODE with exact
-  divergence (targets are 1–2 dim, so the Jacobian trace is cheap).
+- **Heads** (`flowquake/flow.py`, `flowquake/heads.py`, `flowquake/model.py`):
+  a conditional **rectified flow on log-τ** for time (exact ODE likelihood),
+  plus **structured, observation-anchored** heads for space (a mixture of
+  ETAS-style anisotropic power-law kernels at the last-64 events + long-lived
+  big triggers + a train-era KDE background + uniform) and magnitude (a
+  conditional Gutenberg–Richter exponential). Closed-form `sll`/`mll`; ODE only
+  for `tll`. **Production runs with `h_bottleneck=0`**: exposing the heads to
+  the learned whole-catalog embedding causes catastrophic memorization (§4.3 of
+  `MANUSCRIPT.md`), so the heads see only translation-invariant relational
+  features — itself a key finding, not just an ablation.
 
 ## Benchmark protocol (ComCat_25, grounded from the harness)
 
@@ -41,18 +47,28 @@ per-event comparison (mean gain ± stderr, win rate).
 ## Run
 
 ```bash
-# train (RTX 4090, ~45 min for 20k steps)
-python -m flowquake.train configs/comcat25.yaml
+# train the production (N1, density-adaptive) model (RTX 4090, ~45 min)
+python -m flowquake.train configs/n1_density.yaml      # -> runs/n1_density/
 
 # evaluate on the test window vs ETAS (exact ODE likelihoods)
-python -m flowquake.evaluate runs/comcat25/ckpt_best.pt --steps 96
+python -m flowquake.evaluate runs/n1_density/ckpt_best.pt --steps 96
 
-# temporal N-test (daily forecast count distributions via simulation)
-python -m flowquake.ntest runs/comcat25/ckpt_best.pt --n-days 20 --n-sims 1000
+# CSEP N/S/M consistency (100 forecast days x 1e4 simulated catalogs)
+python -m flowquake.csep_forecast runs/n1_density/ckpt_best.pt --n-days 100 --n-sims 10000
+
+# memorization ablation (the mechanism result, §4.3) and its eval
+python scripts/ablation_h.py            # trains h in {0,4,16,64}
+python scripts/memorization_eval.py     # -> runs/ablation_h/memorization_figure.json
+
+# manuscript figures
+python scripts/make_figures.py          # -> figures/
 
 # tests (scan exactness, causality, flow log-prob vs analytic, data alignment)
 python -m pytest tests/ -q
 ```
+
+The 3-seed canonical/full-suite numbers use `configs/final_s{1553,1554,1555}.yaml`
+and the per-dataset `configs/{WHITE_06,SanJac_10,SaltonSea_10,SCEDC_20}_n1*.yaml`.
 
 `reference/` is a clone of the EarthquakeNPP repo (data + ETAS baseline
 outputs); it is not part of this package.

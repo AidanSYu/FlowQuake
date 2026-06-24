@@ -105,7 +105,7 @@ def fig_spatial_gap():
 
     x = np.arange(len(labels)); w = 0.4
     fig, ax = plt.subplots(figsize=(6.2, 3.8))
-    ax.bar(x - w / 2, base["mean"], w, label="canonical (isotropic floor)", color="#C44E52")
+    ax.bar(x - w / 2, base["mean"], w, label="canonical (fixed bandwidth)", color="#C44E52")
     ax.bar(x + w / 2, n1["mean"], w, label="N1 (density-adaptive width)", color="#55A868")
     ax.axhline(0, c="k", lw=1)
     ax.set_xticks(x); ax.set_xticklabels(labels, fontsize=8)
