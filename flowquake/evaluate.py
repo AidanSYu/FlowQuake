@@ -55,7 +55,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("ckpt")
     ap.add_argument("--steps", type=int, default=96, help="ODE steps for exact LL")
-    ap.add_argument("--split", default="test", choices=["val", "test"])
+    ap.add_argument("--split", default="test", choices=["train", "val", "test"])
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--etas-dir", default=str(ETAS_DIR))
     args = ap.parse_args(argv)
