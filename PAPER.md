@@ -25,8 +25,8 @@ conference (the benchmark itself only reached TMLR).
 |---|---|---|---|---|
 | Poisson | 0.5126 | −13.7745 | 13.2619 | benchmark null |
 | ETAS | 1.4343 | −8.6898 | 7.2554 | incumbent |
-| FlowQuake (canonical, 3 seeds) | **1.4860 ± 0.0024** | −9.0907 ± 0.0023 | 7.6047 ± 0.0022 | beats ETAS tll |
-| FlowQuake + N1 density kernel | 1.4876 | **−9.0538** | **7.5662** | best; multi-seed pending |
+| FlowQuake (canonical, 3 seeds) | 1.4860 ± 0.0024 | −9.0907 ± 0.0023 | 7.6047 ± 0.0022 | beats ETAS tll |
+| FlowQuake + N1 density kernel (3 seeds) | **1.4868 ± 0.0008** | **−9.0589 ± 0.0090** | **7.5720 ± 0.0090** | best; spatial gain > seed noise |
 
 - **Temporal win**: paired per-event gain +0.052 ± 0.0025, win rate ~61%. The win
   is ~20× the 3-seed std → unambiguous. (M2)
