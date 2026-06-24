@@ -112,35 +112,30 @@ def fig_fullsuite():
     print("wrote", OUT / "fig_fullsuite.png")
 
 
+def _min_tail(q):
+    """Two-sided consistency probability min(δ₁,δ₂) — the csep_summary criterion.
+
+    pyCSEP stores each test quantile as a pair; a day is consistent at the two-
+    sided 95% level iff min ≥ 0.025. For S/M the pair sums to 1 (so this is just
+    0.025≤γ≤0.975); for the discrete N-test, integer-count ties make δ₁+δ₂>1, so
+    min(δ₁,δ₂) is the correct tie-aware statistic (and what the table reports)."""
+    return min(q) if isinstance(q, (list, tuple)) else min(q, 1.0 - q)
+
+
 def fig_csep():
-    """Per-day CSEP quantiles with the 95% consistency band (ComCat, N1 production)."""
-    r = json.load(open("runs/n1_density/csep/csep_results.json"))
-    res = r["results"]
-
-    def qvals(key, which):
-        out = []
-        for d in res:
-            if key not in d:
-                continue
-            q = d[key]["quantile"]
-            v = (q[which] if isinstance(q, list) else q)
-            out.append(v)
-        return np.sort(out)
-
-    panels = [("N", 1, "Number (δ₂ = P(N_sim ≤ N_obs))"),
-              ("S", 0, "Spatial"), ("M", 0, "Magnitude")]
+    """Per-day CSEP two-sided consistency probability (ComCat, N1 production)."""
+    res = json.load(open("runs/n1_density/csep/csep_results.json"))["results"]
+    panels = [("N", "Number"), ("S", "Spatial"), ("M", "Magnitude")]
     fig, axes = plt.subplots(1, 3, figsize=(10.5, 3.4))
-    for ax, (key, which, title) in zip(axes, panels):
-        v = qvals(key, which)
-        ax.axhspan(0.025, 0.975, color="#DDE8DD", label="consistent (95%)")
+    for ax, (key, title) in zip(axes, panels):
+        v = np.sort([_min_tail(d[key]["quantile"]) for d in res if key in d])
+        ax.axhspan(0.025, 0.5, color="#DDE8DD", label="consistent (95%)")
         ax.plot(np.arange(len(v)), v, "o", ms=3, color="#4C72B0")
         ax.axhline(0.025, ls="--", c="#C44E52", lw=1)
-        ax.axhline(0.975, ls="--", c="#C44E52", lw=1)
-        npass = int(((v >= 0.025) & (v <= 0.975)).sum()) if key != "N" else \
-            int((v >= 0.025).sum())  # N: lower tail only (overprediction)
+        npass = int((v >= 0.025).sum())
         ax.set_title(f"{title}\n{npass}/{len(v)} consistent", fontsize=9)
-        ax.set_ylim(-0.02, 1.02); ax.set_xlabel("forecast day (sorted)", fontsize=8)
-        ax.set_ylabel("test quantile", fontsize=8)
+        ax.set_ylim(-0.01, 0.52); ax.set_xlabel("forecast day (sorted)", fontsize=8)
+        ax.set_ylabel("min(δ₁, δ₂)  (consistency)", fontsize=8)
     fig.suptitle("FlowQuake CSEP consistency (ComCat, 100 days × 10⁴ catalogs)", fontsize=10)
     fig.tight_layout(); fig.savefig(OUT / "fig_csep.png", dpi=160)
     print("wrote", OUT / "fig_csep.png")
@@ -166,39 +161,33 @@ def fig_csep_headtohead():
         print("skip head-to-head: no", et_path); return
     fq = json.load(open(fq_path))["results"]
     et = json.load(open(et_path))["results"]
+    fq_by_day = {d["day"]: d for d in fq}
     et_by_day = {d["day"]: d for d in et}
 
-    panels = [("N", 1, "Number"), ("S", 0, "Spatial"), ("M", 0, "Magnitude")]
+    panels = [("N", "Number"), ("S", "Spatial"), ("M", "Magnitude")]
     fig, axes = plt.subplots(1, 3, figsize=(11, 3.6))
-    print("\nCSEP head-to-head (same days, same harness):")
+    print("\nCSEP head-to-head (same days, same harness, min(δ₁,δ₂)≥0.025):")
     print(f"{'test':>9} | {'FlowQuake':>12} | {'ETAS':>12}")
-    for ax, (key, which, title) in zip(axes, panels):
+    for ax, (key, title) in zip(axes, panels):
         # paired days where both models have the test
-        days = [d["day"] for d in fq if key in d and key in et_by_day.get(d["day"], {})]
-        def series(res_by_day, src):
-            out = []
-            for dd in days:
-                q = (res_by_day[dd] if isinstance(res_by_day, dict)
-                     else next(x for x in src if x["day"] == dd))[key]["quantile"]
-                out.append(q[which] if isinstance(q, list) else q)
-            return np.array(out)
-        fq_v = series({d["day"]: d for d in fq}, fq)
-        et_v = series(et_by_day, et)
+        days = [d for d in fq_by_day
+                if key in fq_by_day[d] and key in et_by_day.get(d, {})]
+        fq_v = np.array([_min_tail(fq_by_day[d][key]["quantile"]) for d in days])
+        et_v = np.array([_min_tail(et_by_day[d][key]["quantile"]) for d in days])
         order = np.argsort(fq_v)
-        ax.axhspan(0.025, 0.975, color="#DDE8DD", label="consistent (95%)")
+        ax.axhspan(0.025, 0.5, color="#DDE8DD", label="consistent (95%)")
         ax.axhline(0.025, ls="--", c="#888", lw=0.8)
-        ax.axhline(0.975, ls="--", c="#888", lw=0.8)
         ax.plot(np.arange(len(days)), fq_v[order], "o", ms=3.2,
                 color="#4C72B0", label="FlowQuake")
         ax.plot(np.arange(len(days)), et_v[order], "^", ms=3.2,
                 color="#DD8452", label="ETAS", alpha=0.8)
-        fqp = int(((fq_v >= 0.025) & (fq_v <= 0.975)).sum())
-        etp = int(((et_v >= 0.025) & (et_v <= 0.975)).sum())
+        fqp = int((fq_v >= 0.025).sum())
+        etp = int((et_v >= 0.025).sum())
         ax.set_title(f"{title}\nFQ {fqp}/{len(days)}  ETAS {etp}/{len(days)}", fontsize=9)
-        ax.set_ylim(-0.02, 1.02); ax.set_xlabel("forecast day (FQ-sorted)", fontsize=8)
-        ax.set_ylabel("test quantile", fontsize=8)
+        ax.set_ylim(-0.01, 0.52); ax.set_xlabel("forecast day (FQ-sorted)", fontsize=8)
+        ax.set_ylabel("min(δ₁, δ₂)  (consistency)", fontsize=8)
         if key == "N":
-            ax.legend(fontsize=7, loc="lower right")
+            ax.legend(fontsize=7, loc="upper left")
         print(f"{title:>9} | {fqp:>5}/{len(days):<6} | {etp:>5}/{len(days):<6}")
     fig.suptitle("FlowQuake vs ETAS — CSEP consistency, identical pyCSEP path "
                  "(ComCat, same forecast days)", fontsize=10)
