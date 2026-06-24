@@ -53,15 +53,18 @@ margin SanJac +0.0285 ± 0.0009). First NPP to beat ETAS temporally across the
 suite. Figures: `figures/fig_fullsuite.png`, `fig_memorization.png`,
 `fig_spatial_gap.png`, `fig_csep.png`.
 
-### CSEP consistency (100 forecast days × 10k simulated catalogs, best seed)
+### CSEP consistency — PRODUCTION N1 model (100 forecast days × 10k sims)
 | test | pass rate @95% | reading |
 |---|---|---|
 | N (number) | 95/100 = 95% | perfectly calibrated |
-| S (spatial) | 81/92 = 88% | consistent; mild over-rejection (sub-km issue) |
+| S (spatial) | 85/92 = 92% | consistent; N1 improves on canonical's 88% (sub-km) |
 | M (magnitude) | 90/92 = 98% | excellent; uniquely enabled by the GR head |
 
-A forecast passing ~95% of days at α=0.05 *is* CSEP-consistent. (M1)
-**TODO**: run ETAS through the same pyCSEP path for a same-days head-to-head.
+CSEP now run on the same N1 production model as §4.1 per-event LL (was canonical
+S 88%; N1's density-adaptive kernel lifts S to 92%, matching its per-event
+spatial gain). A forecast passing ~95% of days at α=0.05 *is* CSEP-consistent.
+(M1) `runs/n1_density/csep`. **TODO**: ETAS through the same pyCSEP path for a
+same-days head-to-head (scoped out — low EV, ETAS also ~consistent).
 
 ### Memorization mechanism (the strongest single result)
 Ablation over the whole-catalog embedding bottleneck h, train-subsample vs test

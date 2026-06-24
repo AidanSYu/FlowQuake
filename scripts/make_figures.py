@@ -113,8 +113,8 @@ def fig_fullsuite():
 
 
 def fig_csep():
-    """Per-day CSEP quantiles with the 95% consistency band (ComCat, best seed)."""
-    r = json.load(open("runs/csep_results_s1555.json"))
+    """Per-day CSEP quantiles with the 95% consistency band (ComCat, N1 production)."""
+    r = json.load(open("runs/n1_density/csep/csep_results.json"))
     res = r["results"]
 
     def qvals(key, which):
