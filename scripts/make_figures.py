@@ -91,6 +91,41 @@ def fig_spatial_gap():
     print(cmp.round(3).to_string())
 
 
+def fig_csep():
+    """Per-day CSEP quantiles with the 95% consistency band (ComCat, best seed)."""
+    r = json.load(open("runs/csep_results_s1555.json"))
+    res = r["results"]
+
+    def qvals(key, which):
+        out = []
+        for d in res:
+            if key not in d:
+                continue
+            q = d[key]["quantile"]
+            v = (q[which] if isinstance(q, list) else q)
+            out.append(v)
+        return np.sort(out)
+
+    panels = [("N", 1, "Number (δ₂ = P(N_sim ≤ N_obs))"),
+              ("S", 0, "Spatial"), ("M", 0, "Magnitude")]
+    fig, axes = plt.subplots(1, 3, figsize=(10.5, 3.4))
+    for ax, (key, which, title) in zip(axes, panels):
+        v = qvals(key, which)
+        ax.axhspan(0.025, 0.975, color="#DDE8DD", label="consistent (95%)")
+        ax.plot(np.arange(len(v)), v, "o", ms=3, color="#4C72B0")
+        ax.axhline(0.025, ls="--", c="#C44E52", lw=1)
+        ax.axhline(0.975, ls="--", c="#C44E52", lw=1)
+        npass = int(((v >= 0.025) & (v <= 0.975)).sum()) if key != "N" else \
+            int((v >= 0.025).sum())  # N: lower tail only (overprediction)
+        ax.set_title(f"{title}\n{npass}/{len(v)} consistent", fontsize=9)
+        ax.set_ylim(-0.02, 1.02); ax.set_xlabel("forecast day (sorted)", fontsize=8)
+        ax.set_ylabel("test quantile", fontsize=8)
+    fig.suptitle("FlowQuake CSEP consistency (ComCat, 100 days × 10⁴ catalogs)", fontsize=10)
+    fig.tight_layout(); fig.savefig(OUT / "fig_csep.png", dpi=160)
+    print("wrote", OUT / "fig_csep.png")
+
+
 if __name__ == "__main__":
     fig_memorization()
     fig_spatial_gap()
+    fig_csep()
