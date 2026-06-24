@@ -21,11 +21,13 @@ ETAS_DIR = Path("reference/Experiments/ETAS/output_data_ComCat_25")
 
 
 def fig_memorization():
-    # From the ablation (ckpt_last / converged endpoints).
-    rows = [(0, 7.28, 7.62), (4, 4.14, 19.65), (16, 4.18, 18.73), (64, 4.27, 18.33)]
-    h = [r[0] for r in rows]
-    tr = [r[1] for r in rows]
-    te = [r[2] for r in rows]
+    # Reproducible from runs/ablation_h/memorization_figure.json (the converged
+    # ckpt_last endpoints; regenerate with scripts/memorization_eval.py).
+    data = json.load(open("runs/ablation_h/memorization_figure.json"))
+    last = {d["h"]: d for d in data if d["ckpt"] == "last"}
+    h = sorted(last)
+    tr = [last[k]["train"]["nll"] for k in h]
+    te = [last[k]["test"]["nll"] for k in h]
     x = np.arange(len(h))
     fig, ax = plt.subplots(figsize=(5.2, 3.6))
     w = 0.38
@@ -42,6 +44,33 @@ def fig_memorization():
     ax.legend(fontsize=8, loc="upper left")
     fig.tight_layout(); fig.savefig(OUT / "fig_memorization.png", dpi=160)
     print("wrote", OUT / "fig_memorization.png")
+
+
+def fig_memorization_curve():
+    """Held-out NLL vs training step for each h (the divergence onset).
+
+    Reads the logged val NLL from runs/ablation_h/h*/metrics.jsonl — no model
+    eval needed. h=0 stays flat; any h>0 diverges catastrophically after the
+    first checkpoint, which is why early stopping cannot rescue it."""
+    colors = {0: "#4C72B0", 4: "#DD8452", 16: "#C44E52", 64: "#8172B3"}
+    fig, ax = plt.subplots(figsize=(5.6, 3.8))
+    for h in (0, 4, 16, 64):
+        path = Path(f"runs/ablation_h/h{h}/metrics.jsonl")
+        if not path.exists():
+            continue
+        steps, nll = [], []
+        for line in path.read_text().splitlines():
+            r = json.loads(line)
+            if "val" in r:
+                steps.append(r["step"]); nll.append(r["val"]["nll"])
+        ax.plot(steps, nll, "-o", ms=2.5, lw=1.3, color=colors[h], label=f"h={h}")
+    ax.axhline(7.2554, ls="--", c="k", lw=1, label="ETAS test NLL")
+    ax.set_xlabel("training step"); ax.set_ylabel("held-out NLL (lower better)")
+    ax.set_title("Any whole-catalog embedding (h>0) diverges on held-out data;\n"
+                 "h=0 (relational heads) stays stable")
+    ax.legend(fontsize=8, loc="center right")
+    fig.tight_layout(); fig.savefig(OUT / "fig_memorization_curve.png", dpi=160)
+    print("wrote", OUT / "fig_memorization_curve.png")
 
 
 def _nn_km():
@@ -198,6 +227,7 @@ def fig_csep_headtohead():
 if __name__ == "__main__":
     fig_fullsuite()
     fig_memorization()
+    fig_memorization_curve()
     fig_spatial_gap()
     fig_csep()
     fig_csep_headtohead()

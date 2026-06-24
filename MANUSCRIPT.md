@@ -11,10 +11,11 @@ production model and the converged ablation checkpoints respectively, as noted.*
 Neural point processes (NPPs) have repeatedly failed to outperform the
 Epidemic-Type Aftershock Sequence (ETAS) model on the EarthquakeNPP benchmark,
 despite far greater flexibility. We show why, and we present FlowQuake, the
-first NPP to beat ETAS on temporal forecasting across **all five** California
-EarthquakeNPP catalogs (ComCat, SCEDC, San Jacinto, Salton Sea, White),
-evaluated on identical event sets and with a full suite of CSEP consistency
-tests (number, spatial, and — uniquely among generative NPPs — magnitude).
+first NPP to beat ETAS on temporal forecasting with multi-seed statistical
+significance on **every** catalog of the California EarthquakeNPP suite
+(ComCat, SCEDC, San Jacinto, Salton Sea, White), evaluated on identical event
+sets and with a full suite of CSEP consistency tests (number, spatial, and —
+uniquely among the benchmark's generative NPPs — magnitude).
 The key to the result is negative: we demonstrate in a controlled ablation
 that conditioning the model's output heads on a learned whole-catalog
 embedding induces catastrophic memorization — training likelihood collapses
@@ -108,9 +109,13 @@ FlowQuake's temporal log-likelihood exceeds ETAS on all five catalogs
 
 On ComCat the paired per-event temporal gain is +0.052 ± 0.0025 (61% of events
 improved). ETAS retains the spatial edge on all five — a consistent, expected
-pattern given its kernel was designed for exactly this. To our knowledge this
-is the first NPP to beat ETAS temporally on any EarthquakeNPP catalog, let
-alone all five (operational statewide, dense fault-zone, and swarm regions).
+pattern given its kernel was designed for exactly this. The EarthquakeNPP
+benchmark reported that none of its five NPPs beat ETAS on total or spatial
+log-likelihood on any dataset; individual seeds of the more flexible models can
+edge out ETAS on temporal likelihood on some catalogs, but not reproducibly.
+To our knowledge FlowQuake is the first NPP to deliver a temporal win that is
+statistically significant over multiple seeds on *every* catalog of the suite
+(operational statewide, dense fault-zone, and swarm regions).
 
 ### 4.2 CSEP consistency (ComCat, 100 forecast days × 10⁴ catalogs)
 
@@ -159,20 +164,29 @@ temporal gain does not come at the cost of operational calibration.
 
 ### 4.3 Why flexibility fails: the memorization mechanism
 
-Sweeping the whole-catalog bottleneck h and measuring train vs held-out NLL at
-convergence:
+We sweep the whole-catalog bottleneck h (the width of the channel from the SSM
+encoder state to the heads) and measure per-event NLL on a held-in train
+subsample and on the test set, at the converged checkpoint (`ckpt_last`):
 
 | h | train nll | test nll | gap |
 |---|---|---|---|
 | 0 | 7.28 | 7.62 | 0.34 |
-| 4 | 4.14 | 19.65 | 15.5 |
-| 16 | 4.18 | 18.73 | 14.5 |
-| 64 | 4.27 | 18.33 | 14.1 |
+| 4 | 4.14 | 19.65 | 15.50 |
+| 16 | 4.18 | 18.73 | 14.55 |
+| 64 | 4.27 | 18.33 | 14.06 |
 
-Any learned global embedding lets the heads memorize the training catalog
-(train NLL → ~4) at the cost of catastrophic generalization (test NLL → ~19).
-Relational, observation-anchored conditioning (h=0) closes the gap to 0.34.
-This is the mechanism behind NPPs' benchmark underperformance.
+Any learned global embedding lets the heads memorize the training catalog —
+train NLL collapses to ~4.1 (the spatial head's train log-likelihood jumps to
+−7.3 nats/event, pinning mass on the exact training epicentres) — at the cost
+of catastrophic generalization, test NLL exploding to ~19. Relational,
+observation-anchored conditioning (h=0) is the only configuration that
+generalizes (gap 0.34). Early stopping does not rescue h>0: its best held-out
+checkpoint is already the *first* one evaluated (step 250, gap 0.21–0.27, but
+still NLL 8.0–8.2 — worse than h=0's 7.62), after which held-out NLL diverges
+monotonically to ~19–20 over training (Fig. memorization_curve), while h=0
+stays flat near the ETAS level for the full run. This is the mechanism behind
+NPPs' benchmark underperformance, and it is reproducible from the committed
+checkpoints (`scripts/memorization_eval.py` → `memorization_figure.json`).
 
 ### 4.4 Localizing and partly closing the spatial gap
 
