@@ -146,8 +146,69 @@ def fig_csep():
     print("wrote", OUT / "fig_csep.png")
 
 
+def _passrate(res, key):
+    """CSEP pass count at the two-sided 95% level (matches csep_forecast)."""
+    n = p = 0
+    for d in res:
+        if key not in d:
+            continue
+        q = d[key]["quantile"]
+        ok = (min(q) >= 0.025) if isinstance(q, (list, tuple)) else (q >= 0.025)
+        n += 1; p += int(ok)
+    return p, n
+
+
+def fig_csep_headtohead():
+    """FlowQuake vs ETAS through the identical pyCSEP path, same forecast days."""
+    fq_path = "runs/n1_density/csep/csep_results.json"
+    et_path = "runs/etas_csep/csep_results.json"
+    if not Path(et_path).exists():
+        print("skip head-to-head: no", et_path); return
+    fq = json.load(open(fq_path))["results"]
+    et = json.load(open(et_path))["results"]
+    et_by_day = {d["day"]: d for d in et}
+
+    panels = [("N", 1, "Number"), ("S", 0, "Spatial"), ("M", 0, "Magnitude")]
+    fig, axes = plt.subplots(1, 3, figsize=(11, 3.6))
+    print("\nCSEP head-to-head (same days, same harness):")
+    print(f"{'test':>9} | {'FlowQuake':>12} | {'ETAS':>12}")
+    for ax, (key, which, title) in zip(axes, panels):
+        # paired days where both models have the test
+        days = [d["day"] for d in fq if key in d and key in et_by_day.get(d["day"], {})]
+        def series(res_by_day, src):
+            out = []
+            for dd in days:
+                q = (res_by_day[dd] if isinstance(res_by_day, dict)
+                     else next(x for x in src if x["day"] == dd))[key]["quantile"]
+                out.append(q[which] if isinstance(q, list) else q)
+            return np.array(out)
+        fq_v = series({d["day"]: d for d in fq}, fq)
+        et_v = series(et_by_day, et)
+        order = np.argsort(fq_v)
+        ax.axhspan(0.025, 0.975, color="#DDE8DD", label="consistent (95%)")
+        ax.axhline(0.025, ls="--", c="#888", lw=0.8)
+        ax.axhline(0.975, ls="--", c="#888", lw=0.8)
+        ax.plot(np.arange(len(days)), fq_v[order], "o", ms=3.2,
+                color="#4C72B0", label="FlowQuake")
+        ax.plot(np.arange(len(days)), et_v[order], "^", ms=3.2,
+                color="#DD8452", label="ETAS", alpha=0.8)
+        fqp = int(((fq_v >= 0.025) & (fq_v <= 0.975)).sum())
+        etp = int(((et_v >= 0.025) & (et_v <= 0.975)).sum())
+        ax.set_title(f"{title}\nFQ {fqp}/{len(days)}  ETAS {etp}/{len(days)}", fontsize=9)
+        ax.set_ylim(-0.02, 1.02); ax.set_xlabel("forecast day (FQ-sorted)", fontsize=8)
+        ax.set_ylabel("test quantile", fontsize=8)
+        if key == "N":
+            ax.legend(fontsize=7, loc="lower right")
+        print(f"{title:>9} | {fqp:>5}/{len(days):<6} | {etp:>5}/{len(days):<6}")
+    fig.suptitle("FlowQuake vs ETAS — CSEP consistency, identical pyCSEP path "
+                 "(ComCat, same forecast days)", fontsize=10)
+    fig.tight_layout(); fig.savefig(OUT / "fig_csep_headtohead.png", dpi=160)
+    print("wrote", OUT / "fig_csep_headtohead.png")
+
+
 if __name__ == "__main__":
     fig_fullsuite()
     fig_memorization()
     fig_spatial_gap()
     fig_csep()
+    fig_csep_headtohead()
