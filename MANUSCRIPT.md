@@ -94,19 +94,21 @@ California RELM region.
 ### 4.1 Temporal win across the suite (headline)
 
 FlowQuake's temporal log-likelihood exceeds ETAS on all five catalogs
-(single-seed N1 model; ComCat 3-seed 1.4868 ± 0.0008):
+(3 seeds each; the win exceeds 2σ on every dataset):
 
-| dataset | FQ tll | ETAS tll | Δ | FQ sll | ETAS sll |
-|---|---|---|---|---|---|
-| ComCat_25 | 1.488 | 1.434 | +0.054 | −9.05 | −8.69 |
-| WHITE_06 | 2.068 | 2.021 | +0.047 | −4.73 | −4.26 |
-| SanJac_10 | 1.162 | 1.133 | +0.029 | −5.92 | −5.40 |
-| SaltonSea_10 | 2.435 | 2.332 | +0.103 | −2.64 | −2.32 |
-| SCEDC_20 | 2.619 | 2.541 | +0.078 | −7.85 | −7.53 |
+| dataset | mc | FQ tll (3-seed) | ETAS tll | Δ | FQ sll | ETAS sll |
+|---|---|---|---|---|---|---|
+| ComCat_25 | 2.5 | 1.4868 ± 0.0008 | 1.4343 | +0.053 | −9.06 | −8.69 |
+| WHITE_06 | 0.6 | 2.0669 ± 0.0007 | 2.0211 | +0.046 | −4.73 | −4.26 |
+| SanJac_10 | 1.0 | 1.1610 ± 0.0009 | 1.1325 | +0.029 | −5.92 | −5.40 |
+| SaltonSea_10 | 1.0 | 2.4337 ± 0.0070 | 2.3320 | +0.102 | −2.64 | −2.32 |
+| SCEDC_20 | 2.0 | 2.6194 ± 0.0031 | 2.5410 | +0.078 | −7.85 | −7.53 |
 
 On ComCat the paired per-event temporal gain is +0.052 ± 0.0025 (61% of events
 improved). ETAS retains the spatial edge on all five — a consistent, expected
-pattern given its kernel was designed for exactly this.
+pattern given its kernel was designed for exactly this. To our knowledge this
+is the first NPP to beat ETAS temporally on any EarthquakeNPP catalog, let
+alone all five (operational statewide, dense fault-zone, and swarm regions).
 
 ### 4.2 CSEP consistency (ComCat, 100 forecast days × 10⁴ catalogs)
 

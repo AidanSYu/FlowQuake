@@ -91,6 +91,27 @@ def fig_spatial_gap():
     print(cmp.round(3).to_string())
 
 
+def fig_fullsuite():
+    """Per-catalog temporal LL gain over ETAS (3-seed mean ± sd)."""
+    s = json.load(open("runs/fullsuite_summary.json"))
+    etas = {'ComCat_25':1.4343,'WHITE_06':2.0211,'SanJac_10':1.1325,
+            'SaltonSea_10':2.3320,'SCEDC_20':2.5410}
+    order = ['ComCat_25','SCEDC_20','SanJac_10','WHITE_06','SaltonSea_10']
+    gains = [s[d]['tll']-etas[d] for d in order]
+    errs = [2*s[d]['tll_sd'] for d in order]
+    fig, ax = plt.subplots(figsize=(6.0, 3.6))
+    ax.bar(range(len(order)), gains, yerr=errs, capsize=4, color="#55A868")
+    ax.axhline(0, c="k", lw=1)
+    ax.set_xticks(range(len(order)))
+    ax.set_xticklabels([d.replace('_','\n') for d in order], fontsize=8)
+    ax.set_ylabel("temporal LL gain over ETAS\n(nat/event; >0 = FlowQuake wins)")
+    ax.set_title("FlowQuake beats ETAS temporally on all 5 EarthquakeNPP catalogs\n(3-seed mean, error bars ±2σ)")
+    for i, g in enumerate(gains):
+        ax.text(i, g+errs[i]+0.002, f"+{g:.3f}", ha="center", fontsize=8)
+    fig.tight_layout(); fig.savefig(OUT / "fig_fullsuite.png", dpi=160)
+    print("wrote", OUT / "fig_fullsuite.png")
+
+
 def fig_csep():
     """Per-day CSEP quantiles with the 95% consistency band (ComCat, best seed)."""
     r = json.load(open("runs/csep_results_s1555.json"))
@@ -126,6 +147,7 @@ def fig_csep():
 
 
 if __name__ == "__main__":
+    fig_fullsuite()
     fig_memorization()
     fig_spatial_gap()
     fig_csep()
