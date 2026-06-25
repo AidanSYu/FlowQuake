@@ -3,10 +3,8 @@
 **Draft manuscript — numbers current as of 2026-06-26. Per-event and full-suite
 results are 3-seed (mean ± std); CSEP and the memorization ablation use the
 production model and the converged ablation checkpoints respectively, as noted.
-Cross-regime transfer (§4.5) uses catalogs built from USGS ComCat; the Chile
-ETAS baseline was still being fit at last edit (its native-vs-ETAS cell is the
-only pending number — Chile serves as a transfer source, where its ETAS row is
-confirmatory).**
+Cross-regime transfer (§4.5) uses catalogs built from USGS ComCat with
+region-fitted ETAS baselines (the `etas` inversion) on all five regions.**
 
 ---
 
@@ -301,13 +299,15 @@ Table 4.5 — temporal gain over region-fitted ETAS (positive = beats ETAS):
 |---|---|---|---|---|---|
 | California | transform | 55,442 | **+0.053** | (source) | — |
 | Japan | subduction | 21,206 | **+0.064** | −0.003 | **+0.071** |
+| Chile | subduction | 12,061 | **+0.037** | (source) | — |
 | Greece | extension | 3,287 | −0.000 | **+0.012** | **+0.037** |
 | Iran | collision | 2,480 | −0.028 | **+0.014** | **+0.044** |
 
 Two findings (Fig. multiregion_transfer). First, the temporal win is not a
-California artifact: on data-rich regions (California, Japan) a natively-trained
-FlowQuake beats region-fitted ETAS temporally, replicating the suite result in a
-different tectonic regime. Second, and the central new result, is a
+California artifact: on all three data-rich regions (California, Japan, Chile —
+≥12k training events) a natively-trained FlowQuake beats region-fitted ETAS
+temporally (+0.037 to +0.064), replicating the suite result in different
+tectonic regimes. Second, and the central new result, is a
 data-efficiency effect: on data-poor regions (Greece 3.3k, Iran 2.5k training
 events) a from-scratch FlowQuake has too little data and ties or loses to ETAS,
 but a model pre-trained on a data-rich region and fine-tuned for only 2,000
