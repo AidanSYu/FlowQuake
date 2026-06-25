@@ -84,6 +84,8 @@ def main(argv=None):
     ap.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--eval-after", action="store_true",
                     help="run the full test evaluation on ckpt_best when done")
+    ap.add_argument("--init-from", type=str, default=None,
+                    help="warm-start model weights from a checkpoint (few-shot transfer)")
     args = ap.parse_args(argv)
 
     cfg = Config.load(args.config)
@@ -110,6 +112,11 @@ def main(argv=None):
     dl = DataLoader(ds, batch_size=tc.batch_size, num_workers=0)
 
     model = make_model(cfg, cat.stats).to(device)
+    if args.init_from:
+        src = torch.load(args.init_from, map_location=device, weights_only=False)
+        missing, unexpected = model.load_state_dict(src["model"], strict=False)
+        print(f"warm-started from {args.init_from} "
+              f"(missing {len(missing)}, unexpected {len(unexpected)})")
     n_params = sum(p.numel() for p in model.parameters())
     print(f"model: {n_params/1e6:.2f}M params")
 
