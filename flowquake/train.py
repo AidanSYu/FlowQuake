@@ -86,6 +86,7 @@ def main(argv=None):
                     help="run the full test evaluation on ckpt_best when done")
     ap.add_argument("--init-from", type=str, default=None,
                     help="warm-start model weights from a checkpoint (few-shot transfer)")
+    ap.add_argument("--seed", type=int, default=None, help="override train.seed")
     args = ap.parse_args(argv)
 
     cfg = Config.load(args.config)
@@ -93,6 +94,8 @@ def main(argv=None):
         cfg.train.steps = args.steps
     if args.out is not None:
         cfg.train.out_dir = args.out
+    if args.seed is not None:
+        cfg.train.seed = args.seed
     tc = cfg.train
 
     torch.manual_seed(tc.seed)

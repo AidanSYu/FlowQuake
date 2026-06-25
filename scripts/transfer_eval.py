@@ -81,6 +81,15 @@ def main():
                "unif_sll": unif_sll, "n_test": int(test_mask.sum())},
               open("runs/transfer_japan.json", "w"), indent=2)
 
+    # per-event scores for the paired vs-ETAS comparison (align on time)
+    import pandas as pd
+    mask_np = np.zeros(cat.n_events, dtype=bool)
+    nxt = mask[0].cpu().numpy(); mask_np[1:] = nxt[:-1]
+    pd.DataFrame({"time": cat.times[mask_np],
+                  "tll": out["tll"].cpu().numpy(),
+                  "sll": out["sll"].cpu().numpy()}).to_csv(
+        Path("runs") / "transfer_japan_per_event.csv", index=False)
+
 
 if __name__ == "__main__":
     main()
