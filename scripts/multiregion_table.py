@@ -1,10 +1,7 @@
-"""Master cross-regime generalization table: FlowQuake (native / CA-zero-shot /
-CA-few-shot) vs region-fitted ETAS, across all regions. nll = -(tll+sll),
-matching EarthquakeNPP (magnitude apart). Paired per-event vs ETAS where the
-ETAS baseline exists; tolerant of pieces still computing.
-
-Regions: ComCat (California, transform) is the transfer SOURCE; Japan & Chile
-(subduction), Greece (extension), Iran (collision) are targets.
+"""Master cross-regime generalization table: FlowQuake (native / transfer
+zero-shot / few-shot) vs region-fitted ETAS, across regions spanning 4 tectonic
+regimes. nll = -(tll+sll). Paired per-event vs ETAS where the baseline exists.
+Transfer is within a completeness regime (mc2.5: CA<->Japan; mc4.0: Chile->rest).
 
 Run: python scripts/multiregion_table.py
 """
@@ -12,85 +9,75 @@ import json
 from pathlib import Path
 import numpy as np, pandas as pd
 
-ETAS_ROOT = Path("reference/Experiments/ETAS")
-# region -> (etas_output_dir, native_run_dir, transfer_tag, regime)
+ER = Path("reference/Experiments/ETAS")
+# region -> dict(etas_dir, native_run, regime, mc, src=transfer source label)
 REGIONS = {
-    "California": ("output_data_ComCat_25", "n1_density", None, "transform (SOURCE)"),
-    "Japan":      ("output_data_Japan_25",  "japan_n1",   "Japan",  "subduction"),
-    "Chile":      ("output_data_Chile_25",  "chile_n1",   "Chile",  "subduction"),
-    "Greece":     ("output_data_Greece_25", "greece_n1",  "Greece", "extension"),
-    "Iran":       ("output_data_Iran_25",   "iran_n1",    "Iran",   "collision"),
+    "California": dict(etas="output_data_ComCat_25", run="n1_density", regime="transform", mc=2.5, src=None),
+    "Japan":      dict(etas="output_data_Japan_25",  run="japan_n1",  regime="subduction", mc=2.5, src="CA"),
+    "Chile":      dict(etas="output_data_Chile_25",  run="chile_n1",  regime="subduction", mc=4.0, src=None),
+    "Greece":     dict(etas="output_data_Greece_25", run="greece_n1", regime="extension",  mc=4.0, src="Chile"),
+    "Iran":       dict(etas="output_data_Iran_25",   run="iran_n1",   regime="collision",  mc=4.0, src="Chile"),
 }
+# per-event score files for transfer (zero-shot) and few-shot, by region
+ZS = {"Japan": "runs/transfer_Japan_per_event.csv", "Greece": "runs/transfer_Greece_per_event.csv",
+      "Iran": "runs/transfer_Iran_per_event.csv"}
+FS = {"Japan": "runs/japan_fewshot/per_event_test.csv", "Greece": "runs/greece_fewshot/per_event_test.csv",
+      "Iran": "runs/iran_fewshot/per_event_test.csv"}
 
 
-def etas_scores(d):
-    f = ETAS_ROOT / d / "ll_scores.json"
-    if not f.exists():
+def etas_pe(d):
+    f = ER / d / "augmented_catalog.csv"
+    return pd.read_csv(f, parse_dates=["time"]).dropna(subset=["TLL", "SLL"])[["time", "TLL", "SLL"]] if f.exists() else None
+
+
+def etas_agg(d):
+    f = ER / d / "ll_scores.json"
+    return json.load(open(f))["ETAS"] if f.exists() else None
+
+
+def paired(csv, epe):
+    if not Path(csv).exists() or epe is None:
         return None
-    j = json.load(open(f)); return j["ETAS"]
-
-
-def etas_perevent(d):
-    f = ETAS_ROOT / d / "augmented_catalog.csv"
-    if not f.exists():
-        return None
-    a = pd.read_csv(f, parse_dates=["time"]).dropna(subset=["TLL", "SLL"])
-    return a[["time", "TLL", "SLL"]]
-
-
-def fq_eval(run):
-    f = Path("runs") / run / "eval_test.json"
-    if not f.exists():
-        return None
-    r = json.load(open(f)); return r["tll"], r["sll"]
-
-
-def paired(per_event_csv, etas_pe):
-    p = Path(per_event_csv)
-    if not p.exists() or etas_pe is None:
-        return None
-    fq = pd.read_csv(p, parse_dates=["time"])
-    m = fq.merge(etas_pe, on="time", how="inner")
+    m = pd.read_csv(csv, parse_dates=["time"]).merge(epe, on="time", how="inner")
     if not len(m):
         return None
-    dt = m["tll"] - m["TLL"]; ds = m["sll"] - m["SLL"]
+    dt, ds = m["tll"] - m["TLL"], m["sll"] - m["SLL"]
     return dict(n=len(m), tll=m["tll"].mean(), sll=m["sll"].mean(),
-                dT=dt.mean(), dT_se=dt.std(ddof=1)/np.sqrt(len(m)),
-                dS=ds.mean(), dTot=(dt+ds).mean())
+                dT=float(dt.mean()), dTse=float(dt.std(ddof=1)/np.sqrt(len(m))),
+                dS=float(ds.mean()), dTot=float((dt+ds).mean()))
+
+
+def row(label, tll, sll, pr):
+    dT = f"{pr['dT']:>+8.3f}" if pr else " " * 8
+    dTot = f"{pr['dTot']:>+8.3f}" if pr else " " * 8
+    win = f"{'WIN' if pr and pr['dT'] > 0 else ''}" if pr else ""
+    print(f"{'':12}{'':12}{label:18}{tll:>8.3f}{sll:>9.3f}{-(tll+sll):>8.3f}{dT}{dTot}  {win}")
 
 
 def main():
-    print(f"{'region':12}{'regime':20}{'model':16}{'tll':>8}{'sll':>9}{'nll':>8}"
-          f"{'dTemp':>9}{'dTotal':>9}")
+    print(f"{'region':12}{'regime':12}{'model':18}{'tll':>8}{'sll':>9}{'nll':>8}{'dTemp':>8}{'dTot':>8}  (vs ETAS)")
     master = {}
-    for reg, (ed, run, tag, regime) in REGIONS.items():
-        es = etas_scores(ed); epe = etas_perevent(ed)
-        master[reg] = {"regime": regime}
-        if es:
-            print(f"{reg:12}{regime:20}{'ETAS(native)':16}{es['tll']:>8.3f}{es['sll']:>9.3f}"
-                  f"{es['nll']:>8.3f}{'':>9}{'':>9}")
-            master[reg]["ETAS"] = es
+    for reg, c in REGIONS.items():
+        epe = etas_pe(c["etas"]); eag = etas_agg(c["etas"])
+        print(f"\n{reg:12}{c['regime']:12}{'(mc %.1f)'%c['mc']:18}")
+        master[reg] = dict(regime=c["regime"], mc=c["mc"])
+        if eag:
+            print(f"{'':12}{'':12}{'ETAS native':18}{eag['tll']:>8.3f}{eag['sll']:>9.3f}{eag['nll']:>8.3f}")
+            master[reg]["ETAS"] = eag
         else:
-            print(f"{reg:12}{regime:20}{'ETAS(native)':16}{'  ...fitting...':>34}")
-        # native FQ
-        nv = fq_eval(run)
-        if nv:
-            t, s = nv; pr = paired(f"runs/{run}/per_event_test.csv", epe)
-            dT = f"{pr['dT']:>+9.3f}" if pr else f"{'':>9}"; dTot = f"{pr['dTot']:>+9.3f}" if pr else f"{'':>9}"
-            print(f"{'':12}{'':20}{'FQ native':16}{t:>8.3f}{s:>9.3f}{-(t+s):>8.3f}{dT}{dTot}")
-            master[reg]["native"] = dict(tll=t, sll=s, paired=pr)
-        # zero-shot (CA -> region)
-        if tag:
-            pr = paired(f"runs/transfer_{tag}_per_event.csv", epe)
-            zj = Path(f"runs/transfer_{tag}.json")
-            if zj.exists():
-                z = json.load(open(zj)); t, s = z["tll"], z["sll"]
-                dT = f"{pr['dT']:>+9.3f}" if pr else f"{'':>9}"; dTot = f"{pr['dTot']:>+9.3f}" if pr else f"{'':>9}"
-                print(f"{'':12}{'':20}{'FQ CA zero-shot':16}{t:>8.3f}{s:>9.3f}{-(t+s):>8.3f}{dT}{dTot}")
-                master[reg]["zeroshot"] = dict(tll=t, sll=s, paired=pr)
-        print()
+            print(f"{'':12}{'':12}{'ETAS native':18}{'  ...fitting...':>25}")
+        nf = Path("runs") / c["run"] / "eval_test.json"
+        if nf.exists():
+            r = json.load(open(nf)); pr = paired(f"runs/{c['run']}/per_event_test.csv", epe)
+            row("FQ native", r["tll"], r["sll"], pr); master[reg]["native"] = dict(tll=r["tll"], sll=r["sll"], paired=pr)
+        if reg in ZS and Path(ZS[reg]).exists():
+            z = json.load(open(f"runs/transfer_{reg}.json")); pr = paired(ZS[reg], epe)
+            row(f"FQ {c['src']}->zs", z["tll"], z["sll"], pr); master[reg]["zeroshot"] = dict(src=c["src"], tll=z["tll"], sll=z["sll"], paired=pr)
+        if reg in FS and Path(FS[reg]).exists():
+            fr = json.load(open(Path(FS[reg]).parent / "eval_test.json")); pr = paired(FS[reg], epe)
+            row(f"FQ {c['src']}->few", fr["tll"], fr["sll"], pr); master[reg]["fewshot"] = dict(tll=fr["tll"], sll=fr["sll"], paired=pr)
     json.dump(master, open("runs/multiregion_master.json", "w"), indent=2, default=float)
-    print("wrote runs/multiregion_master.json")
+    print("\nwrote runs/multiregion_master.json")
 
 
 if __name__ == "__main__":

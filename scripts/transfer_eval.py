@@ -78,26 +78,21 @@ def main():
           f"  ({'TRANSFERS' if tll > pois_tll + 0.1 else 'weak'})")
     print(f"spatial : FQ beats uniform by {sll - unif_sll:+.4f} nats/event")
     # name outputs by TARGET catalog so opposite-direction runs don't clobber
+    # (note: Windows FS is case-insensitive, so transfer_Japan == transfer_japan)
     tag = Path(args.catalog).stem.replace("_catalog", "")
     json.dump({"tll": tll, "sll": sll, "mll": mll, "pois_tll": pois_tll,
                "unif_sll": unif_sll, "n_test": int(test_mask.sum()),
                "ckpt": args.ckpt},
               open(f"runs/transfer_{tag}.json", "w"), indent=2)
-    # back-compat alias used by the figure script for the CA->Japan run
-    if tag == "Japan":
-        import shutil
-        shutil.copy(f"runs/transfer_{tag}.json", "runs/transfer_japan.json")
 
     # per-event scores for the paired vs-ETAS comparison (align on time)
     import pandas as pd
     mask_np = np.zeros(cat.n_events, dtype=bool)
     nxt = mask[0].cpu().numpy(); mask_np[1:] = nxt[:-1]
-    pe = pd.DataFrame({"time": cat.times[mask_np],
-                       "tll": out["tll"].cpu().numpy(),
-                       "sll": out["sll"].cpu().numpy()})
-    pe.to_csv(Path("runs") / f"transfer_{tag}_per_event.csv", index=False)
-    if tag == "Japan":
-        pe.to_csv(Path("runs") / "transfer_japan_per_event.csv", index=False)
+    pd.DataFrame({"time": cat.times[mask_np],
+                  "tll": out["tll"].cpu().numpy(),
+                  "sll": out["sll"].cpu().numpy()}).to_csv(
+        Path("runs") / f"transfer_{tag}_per_event.csv", index=False)
 
 
 if __name__ == "__main__":
