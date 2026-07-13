@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import torch
 
-from flowquake.data import CropDataset, full_sequence_batch, load_catalog
+from flowquake.data import CropDataset, full_sequence_batch, load_catalog, near_trigger_matrix
 
 CATALOG = Path(__file__).resolve().parents[1] / "reference/Datasets/ComCat/ComCat_catalog.csv"
 
@@ -64,3 +64,20 @@ def test_full_sequence_mask_shift(cat):
     # position i predicts event i+1, which must be a test target
     assert cat.target_test[(idx + 1).numpy()].all()
     assert torch.allclose(target[0, idx], cat.feats[idx + 1, :4])
+
+
+def test_near_trigger_matrix_is_not_truncated_by_future_neighbors():
+    # Event 5 has two valid prior neighbors within 30 km. Many later events are
+    # even closer; the old all-events fixed-k query let those future events
+    # displace the real priors before the causal filter was applied.
+    t = np.arange(12, dtype=float)
+    x = np.array([100, 101, 102, 103, 104, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6], dtype=float)
+    y = np.zeros_like(x)
+    m = np.linspace(2.5, 3.6, len(t))
+    x[3] = 2.0
+    x[4] = 1.0
+
+    near = near_trigger_matrix(t, x, y, m, n_near=2, rmax_km=30.0, query_k=3)
+
+    assert np.allclose(near[5, :2, 0], [1.0, 2.0])
+    assert np.allclose(near[5, :2, 3], [m[4], m[3]])

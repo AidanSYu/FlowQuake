@@ -1,8 +1,8 @@
 data:
-  catalog_path: reference/Datasets/Japan/Japan_catalog.csv
-  mcut: 4.0
-  aux_start: '1990-01-01'
-  train_start: '1992-01-01'
+  catalog_path: reference/Datasets/Italy/Italy_catalog.csv
+  mcut: 2.8
+  aux_start: '1992-01-01'
+  train_start: '1994-01-01'
   val_start: '2009-01-01'
   test_start: '2011-01-01'
   test_end: '2020-01-01'
@@ -45,4 +45,4 @@ train:
   val_events: 4096
   val_ode_steps: 32
   patience: 16
-  out_dir: runs/japan_n1
+  out_dir: runs/italy_mc28_n1

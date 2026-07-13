@@ -3,7 +3,8 @@
 A: per region, FlowQuake temporal gain over region-fitted ETAS (dTemp, nats/event)
    for native / zero-shot transfer / few-shot. Zero line = ETAS. Shows native
    wins on data-rich regions but ties/loses on data-poor ones, while few-shot
-   (brief warm-started fine-tune) beats ETAS in every regime.
+   (brief warm-started fine-tune) rescues Greece/Iran to parity. Japan remains
+   the small-loss/tie boundary case for held-out transfer.
 B: data efficiency -- dTemp vs region training-set size; native collapses as
    data shrinks, transfer/few-shot stay above ETAS. ETAS cannot transfer.
 
@@ -18,7 +19,8 @@ import matplotlib.pyplot as plt
 M = json.load(open("runs/multiregion_master.json"))
 TRAIN = {  # (catalog, mc, train_start, test_start) to count native training events
     "California": ("reference/Datasets/ComCat/ComCat_catalog.csv", 2.5, "1981-01-01", "2007-01-01"),
-    "Japan": ("reference/Datasets/Japan/Japan_catalog.csv", 2.5, "1992-01-01", "2011-01-01"),
+    "Italy": ("reference/Datasets/Italy/Italy_catalog.csv", 2.5, "1994-01-01", "2011-01-01"),
+    "Japan": ("reference/Datasets/Japan/Japan_catalog.csv", 4.0, "1992-01-01", "2011-01-01"),
     "Chile": ("reference/Datasets/Chile/Chile_catalog.csv", 4.0, "1992-01-01", "2011-01-01"),
     "Greece": ("reference/Datasets/Greece/Greece_catalog.csv", 4.0, "1992-01-01", "2011-01-01"),
     "Iran": ("reference/Datasets/Iran/Iran_catalog.csv", 4.0, "1992-01-01", "2011-01-01"),

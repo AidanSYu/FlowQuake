@@ -23,8 +23,7 @@ import pandas as pd
 import torch
 
 from .config import Config
-from .data import load_catalog
-from .train import make_model
+from .train import load_catalog_cfg, make_model
 
 MAX_EVENTS_PER_DAY = 200
 MAX_REJECTION_ROUNDS = 200
@@ -176,11 +175,7 @@ def main(argv=None):
     cfg: Config = ckpt["cfg"]
     device = torch.device(args.device)
 
-    cat = load_catalog(
-        cfg.data.catalog_path, cfg.data.mcut, cfg.data.aux_start,
-        cfg.data.train_start, cfg.data.val_start, cfg.data.test_start,
-        cfg.data.test_end,
-    )
+    cat = load_catalog_cfg(cfg)
     model = make_model(cfg, ckpt["stats"]).to(device).eval()
     model.load_state_dict(ckpt["model"])
     model.stats.setdefault("mcut", cfg.data.mcut)

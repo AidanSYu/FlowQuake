@@ -98,21 +98,22 @@ def near_trigger_matrix(t_days: np.ndarray, x: np.ndarray, y: np.ndarray,
     out[:] = null_row
     pts = np.column_stack([x, y])
     tree = cKDTree(pts)
-    qk = min(query_k, E)
-    for s in range(0, E, 8192):                       # batch to cap memory
-        e = min(s + 8192, E)
-        dist, nbr = tree.query(pts[s:e], k=qk)
-        for r, i in enumerate(range(s, e)):
-            cand, dd = nbr[r], dist[r]
-            keep = (cand < i) & (dd < rmax_km)        # prior in time, within rmax
-            cc = cand[keep][:n_near]                   # already distance-sorted
-            n = len(cc)
-            if n == 0:
-                continue
-            out[i, :n, 0] = x[cc]
-            out[i, :n, 1] = y[cc]
-            out[i, :n, 2] = np.log(np.clip(t_days[i] - t_days[cc], TAU_FLOOR_DAYS, None))
-            out[i, :n, 3] = m[cc]
+    if query_k != 512:
+        # Kept only for backward-compatible call signatures. Exact causal
+        # radius search below avoids the old fixed-k all-events truncation.
+        pass
+    for i in range(E):
+        cand = np.asarray(tree.query_ball_point(pts[i], rmax_km), dtype=np.int64)
+        cand = cand[cand < i]
+        if len(cand) == 0:
+            continue
+        dd = np.hypot(x[cand] - x[i], y[cand] - y[i])
+        cc = cand[np.argsort(dd, kind="mergesort")[:n_near]]
+        n = len(cc)
+        out[i, :n, 0] = x[cc]
+        out[i, :n, 1] = y[cc]
+        out[i, :n, 2] = np.log(np.clip(t_days[i] - t_days[cc], TAU_FLOOR_DAYS, None))
+        out[i, :n, 3] = m[cc]
     return out
 
 

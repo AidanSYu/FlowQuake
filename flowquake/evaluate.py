@@ -58,10 +58,24 @@ def main(argv=None):
     ap.add_argument("--split", default="test", choices=["train", "val", "test"])
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--etas-dir", default=str(ETAS_DIR))
+    # frozen-checkpoint forward-window scoring: override the eval catalog and
+    # test window WITHOUT touching the checkpoint's stats or train/val splits.
+    ap.add_argument("--catalog", default=None, help="override catalog_path")
+    ap.add_argument("--test-start", default=None)
+    ap.add_argument("--test-end", default=None)
+    ap.add_argument("--tag", default=None, help="output suffix instead of split name")
+    ap.add_argument("--etas-aug", default=None,
+                    help="per-event ETAS csv (time,TLL,SLL) for pairing")
     args = ap.parse_args(argv)
 
     ckpt = torch.load(args.ckpt, map_location="cpu", weights_only=False)
     cfg: Config = ckpt["cfg"]
+    if args.catalog:
+        cfg.data.catalog_path = args.catalog
+    if args.test_start:
+        cfg.data.test_start = args.test_start
+    if args.test_end:
+        cfg.data.test_end = args.test_end
     device = torch.device(args.device)
 
     cat = load_catalog_cfg(cfg)
@@ -100,19 +114,20 @@ def main(argv=None):
     mask_np = np.zeros(cat.n_events, dtype=bool)
     nxt = mask[0].cpu().numpy()
     mask_np[1:] = nxt[:-1]
-    aug_csv = etas_dir / "augmented_catalog.csv"
-    if aug_csv.exists() and args.split == "test":
+    aug_csv = Path(args.etas_aug) if args.etas_aug else etas_dir / "augmented_catalog.csv"
+    if aug_csv.exists() and (args.split == "test" or args.etas_aug):
         paired = paired_vs_etas(cat, mask_np, tll, sll, aug_csv)
         if paired:
             res["paired_vs_ETAS"] = paired
 
-    out_path = Path(args.ckpt).parent / f"eval_{args.split}.json"
+    tag = args.tag or args.split
+    out_path = Path(args.ckpt).parent / f"eval_{tag}.json"
     with open(out_path, "w") as f:
         json.dump(res, f, indent=2)
     per_event = pd.DataFrame({
         "time": cat.times[mask_np], "tll": tll, "sll": sll, "mll": mll,
     })
-    per_event.to_csv(Path(args.ckpt).parent / f"per_event_{args.split}.csv", index=False)
+    per_event.to_csv(Path(args.ckpt).parent / f"per_event_{tag}.csv", index=False)
 
     print(json.dumps(res, indent=2))
     if "baselines" in res:

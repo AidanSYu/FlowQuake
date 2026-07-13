@@ -1,28 +1,36 @@
-"""Master cross-regime generalization table: FlowQuake (native / transfer
-zero-shot / few-shot) vs region-fitted ETAS, across regions spanning 4 tectonic
-regimes. nll = -(tll+sll). Paired per-event vs ETAS where the baseline exists.
-Transfer is within a completeness regime (mc2.5: CA<->Japan; mc4.0: Chile->rest).
+"""Master cross-regime generalization table.
+
+FlowQuake (native / transfer zero-shot / few-shot) is paired against
+region-fitted ETAS on identical event times. nll = -(tll+sll). Paired temporal
+and total gains include block-bootstrap CIs to preserve aftershock clustering.
 
 Run: python scripts/multiregion_table.py
 """
 import json
+import os
+import sys
 from pathlib import Path
 import numpy as np, pandas as pd
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from flowquake.stats import paired_gain_summary
+
 ER = Path("reference/Experiments/ETAS")
 # region -> dict(etas_dir, native_run, regime, mc, src=transfer source label)
+# All foreign regions are ISC mc4.0; transfer source is the leave-one-region-out
+# pooled "foundation" model (pre-trained on the OTHER 3 mc4.0 regions). California
+# stays the separate mc2.5 EarthquakeNPP benchmark (native temporal win).
 REGIONS = {
-    "California": dict(etas="output_data_ComCat_25", run="n1_density", regime="transform", mc=2.5, src=None),
-    "Japan":      dict(etas="output_data_Japan_25",  run="japan_n1",  regime="subduction", mc=2.5, src="CA"),
-    "Chile":      dict(etas="output_data_Chile_25",  run="chile_n1",  regime="subduction", mc=4.0, src=None),
-    "Greece":     dict(etas="output_data_Greece_25", run="greece_n1", regime="extension",  mc=4.0, src="Chile"),
-    "Iran":       dict(etas="output_data_Iran_25",   run="iran_n1",   regime="collision",  mc=4.0, src="Chile"),
+    "California": dict(etas="output_data_ComCat_25", run="n1_density", regime="transform",  mc=2.5, src=None),
+    "Italy":      dict(etas="output_data_Italy_25",  run="italy_n1",  regime="extension",  mc=2.5, src=None),
+    "Japan":      dict(etas="output_data_Japan_25",  run="japan_n1",  regime="subduction", mc=4.0, src="pool"),
+    "Chile":      dict(etas="output_data_Chile_25",  run="chile_n1",  regime="subduction", mc=4.0, src="pool"),
+    "Greece":     dict(etas="output_data_Greece_25", run="greece_n1", regime="extension",  mc=4.0, src="pool"),
+    "Iran":       dict(etas="output_data_Iran_25",   run="iran_n1",   regime="collision",  mc=4.0, src="pool"),
 }
 # per-event score files for transfer (zero-shot) and few-shot, by region
-ZS = {"Japan": "runs/transfer_Japan_per_event.csv", "Greece": "runs/transfer_Greece_per_event.csv",
-      "Iran": "runs/transfer_Iran_per_event.csv"}
-FS = {"Japan": "runs/japan_fewshot/per_event_test.csv", "Greece": "runs/greece_fewshot/per_event_test.csv",
-      "Iran": "runs/iran_fewshot/per_event_test.csv"}
+ZS = {r: f"runs/transfer_{r}_per_event.csv" for r in ["Japan", "Chile", "Greece", "Iran"]}
+FS = {r: f"runs/{r.lower()}_fewshot/per_event_test.csv" for r in ["Japan", "Chile", "Greece", "Iran"]}
 
 
 def etas_pe(d):
@@ -42,15 +50,20 @@ def paired(csv, epe):
     if not len(m):
         return None
     dt, ds = m["tll"] - m["TLL"], m["sll"] - m["SLL"]
+    seed = sum(ord(ch) for ch in str(csv)) % 10000
+    t = paired_gain_summary(dt, seed=seed)
+    tot = paired_gain_summary(dt + ds, seed=seed + 1)
     return dict(n=len(m), tll=m["tll"].mean(), sll=m["sll"].mean(),
-                dT=float(dt.mean()), dTse=float(dt.std(ddof=1)/np.sqrt(len(m))),
-                dS=float(ds.mean()), dTot=float((dt+ds).mean()))
+                dT=t.mean, dTse=t.stderr, dT_ci=t.asdict()["ci"],
+                dT_decision=t.decision, dS=float(ds.mean()),
+                dTot=tot.mean, dTot_ci=tot.asdict()["ci"],
+                dTot_decision=tot.decision)
 
 
 def row(label, tll, sll, pr):
     dT = f"{pr['dT']:>+8.3f}" if pr else " " * 8
     dTot = f"{pr['dTot']:>+8.3f}" if pr else " " * 8
-    win = f"{'WIN' if pr and pr['dT'] > 0 else ''}" if pr else ""
+    win = pr["dT_decision"].upper() if pr else ""
     print(f"{'':12}{'':12}{label:18}{tll:>8.3f}{sll:>9.3f}{-(tll+sll):>8.3f}{dT}{dTot}  {win}")
 
 

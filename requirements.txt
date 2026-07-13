@@ -1,0 +1,9 @@
+# Core (already present in the user's Python 3.12 env: torch 2.6+cu124, numpy, pandas, scipy)
+torch>=2.4
+numpy>=1.26
+pandas>=2.0
+scipy>=1.11
+
+# Track B (pyCSEP catalog-based forecast tests) — optional, only needed for simulate_csep/run_csep
+# pycsep==0.6.3
+# etas @ git+https://github.com/ss15859/etas

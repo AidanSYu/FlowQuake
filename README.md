@@ -1,8 +1,14 @@
-# FlowQuake — beat ETAS on EarthquakeNPP
+# FlowQuake — ETAS-upgrade candidate for EarthquakeNPP
 
 Selective-SSM (Mamba-style) **whole-catalog encoder** + **flow-matching marked
 point process**, evaluated on the [EarthquakeNPP](https://github.com/ss15859/EarthquakeNPP)
-benchmark against the operational ETAS model. See `SEED.md` for the research bet.
+benchmark against the operational ETAS model. The strongest current claim is a
+multi-seed temporal log-likelihood win, transferable deployment evidence, and a
+full-history neural-ETAS spatial head that flips total likelihood against
+region-fitted ETAS in the six tested regions. This is an ETAS upgrade path, not
+yet an operational replacement: CSEP must still be re-run with the upgraded
+spatial head and a future prospective forecast must be registered before making
+deployment claims. See `SEED.md` for the original research bet.
 
 The two reasons neural point processes have lost to ETAS — fixed-window
 encoders (DeepSTPP sees 20 events) and hand-crafted Omori/Gutenberg-Richter
@@ -19,8 +25,9 @@ kernels — are exactly what this stack replaces:
   conditional Gutenberg–Richter exponential). Closed-form `sll`/`mll`; ODE only
   for `tll`. **Production runs with `h_bottleneck=0`**: exposing the heads to
   the learned whole-catalog embedding causes catastrophic memorization (§4.3 of
-  `MANUSCRIPT.md`), so the heads see only translation-invariant relational
-  features — itself a key finding, not just an ablation.
+  `MANUSCRIPT.md`), so the learned conditioning excludes absolute coordinates
+  and uses relational features. The spatial density still includes lightweight
+  per-region normalization and a train-era smoothed-seismicity background map.
 
 ## Benchmark protocol (ComCat_25, grounded from the harness)
 
@@ -63,6 +70,9 @@ python scripts/memorization_eval.py     # -> runs/ablation_h/memorization_figure
 # manuscript figures
 python scripts/make_figures.py          # -> figures/
 
+# replacement-readiness / claim-boundary audit
+python scripts/audit_readiness.py       # -> runs/replacement_readiness.json
+
 # tests (scan exactness, causality, flow log-prob vs analytic, data alignment)
 python -m pytest tests/ -q
 ```
@@ -77,11 +87,11 @@ outputs); it is not part of this package.
 
 1. **Temporal kill**: beat ETAS tll / pass temporal N-test. *(Known to
    underdeliver per benchmark authors — necessary, not sufficient.)*
-2. **CSEP spatial/magnitude win**: the actual bar. `flowquake/ntest.py`
-   simulation machinery extends to daily CSEP catalog forecasts (S/M tests
-   via pycsep, harness in `reference/Experiments/ETAS/`).
-3. **Coulomb-stress kernel**: neural-operator anisotropic spatial intensity —
-   the one axis ETAS still wins.
+2. **Spatial/total likelihood win**: the full-history neural-ETAS head closes
+   the ETAS spatial gap and flips total likelihood on the reported regions.
+3. **Operational replacement gate**: re-run matched ETAS-vs-FlowQuake CSEP with
+   the full-history head, validate the ETAS-refit forward control, and register
+   a genuinely future rolling forecast.
 
 ## Notes
 

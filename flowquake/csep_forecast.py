@@ -33,9 +33,8 @@ from csep.core import regions
 from csep.utils import time_utils
 
 from .config import Config
-from .data import load_catalog
 from .ntest import simulate_day_events
-from .train import make_model
+from .train import load_catalog_cfg, make_model
 
 MAX_MW = 7.65
 DMW = 0.1
@@ -110,10 +109,7 @@ def main(argv=None):
     ckpt = torch.load(args.ckpt, map_location="cpu", weights_only=False)
     cfg: Config = ckpt["cfg"]
     device = torch.device(args.device)
-    cat = load_catalog(
-        cfg.data.catalog_path, cfg.data.mcut, cfg.data.aux_start,
-        cfg.data.train_start, cfg.data.val_start, cfg.data.test_start, cfg.data.test_end,
-    )
+    cat = load_catalog_cfg(cfg)
     if args.rerun:  # tests recompute from saved forecasts — no model/GPU needed
         model = xy2lonlat = None
     else:

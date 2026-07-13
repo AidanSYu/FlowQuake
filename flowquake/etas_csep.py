@@ -53,12 +53,19 @@ def _load_days(spec: str):
     return [int(x) for x in spec.split(",")]
 
 
-def simulate_day(inv_template: dict, day: int, n_sims: int, m_threshold: float):
-    """Return a DataFrame of n_sims one-day ETAS continuations for offset `day`.
+def simulate_day(inv_template: dict, day: int, n_sims: int, m_threshold: float,
+                 out_path: Path, chunksize: int = 100) -> tuple[int, int]:
+    """STREAM n_sims one-day ETAS continuations for offset `day` straight to a
+    csep_ascii CSV, holding only one chunk in memory at a time. Returns
+    (n_events, n_nonempty_catalogs).
 
     Reloads the inversion with timewindow_end advanced by `day` so triggering
-    conditions on observed history up to the forecast start (catalog-based
-    forecasting, Mizrahi et al. 2021). Fitted ETAS params are unchanged.
+    conditions on observed history up to the forecast start (Mizrahi et al. 2021);
+    fitted params unchanged. Memory note: the previous version accumulated every
+    chunk and concatenated (peak ~ all n_sims events, ~tens of GB at n_sims=1e4,
+    which OOM'd the box). simulate() already yields chunks lazily and frees each,
+    so writing each chunk and discarding it bounds peak memory to ~chunksize
+    catalogs regardless of n_sims.
     """
     from etas.inversion import ETASParameterCalculation
     from etas.simulation import ETASSimulation
@@ -70,41 +77,41 @@ def simulate_day(inv_template: dict, day: int, n_sims: int, m_threshold: float):
     inv["space_unit_in_meters"] = False
 
     reload = ETASParameterCalculation.load_calculation(inv)
+    # FIX (trigger conditioning): load_calculation restores the CACHED source
+    # events from the original inversion window (<= test_start). A genuine
+    # forecast at offset `day` must condition triggering on every observed event
+    # up to the advanced timewindow_end. load_calculation already re-read the full
+    # fn_catalog and windowed it to [auxiliary_start, timewindow_end+day) via
+    # filter_catalog, so recomputing the source set from that catalog restores the
+    # post-test_start mainshocks as triggers (the fitted long-term background/
+    # target map is left as-is — it is the slow-varying term, unlike triggering).
+    reload.source_events = reload.prepare_source_events()
     sim = ETASSimulation(reload)
     sim.prepare()
 
-    # simulate() yields chunked DataFrames; concat to one (cols: latitude,
-    # longitude, magnitude, time, [is_background], catalog_id; index 'id').
     gen = sim.simulate(forecast_n_days=1, n_simulations=n_sims,
-                       m_threshold=m_threshold, info_cols=[], chunksize=500)
-    parts = [df for df in gen]
-    if not parts:
-        return pd.DataFrame(columns=["latitude", "longitude", "magnitude",
-                                     "time", "catalog_id"])
-    return pd.concat(parts)
-
-
-def write_csep_ascii(df: pd.DataFrame, n_sims: int, path: Path) -> int:
-    """Write csep_ascii (lon,lat,magnitude,time_string,depth,catalog_id,event_id).
-
-    Every simulation index 0..n_sims-1 must be representable so pyCSEP counts
-    empty catalogs; csep infers catalog count from distinct catalog_id, so we
-    keep ids as-is and rely on n_cat in the scorer. Returns non-empty count.
-    """
-    rows = []
-    if len(df):
-        time = pd.to_datetime(df["time"])
-        for i, (_, ev) in enumerate(df.iterrows()):
-            t = time.iloc[i]
-            cid = int(ev["catalog_id"])
-            rows.append((float(ev["longitude"]), float(ev["latitude"]),
-                         float(ev["magnitude"]), t.strftime(EPOCH), 0.0,
-                         cid, f"{cid}_{i}"))
-    with open(path, "w", newline="") as f:
+                       m_threshold=m_threshold, info_cols=[], chunksize=chunksize)
+    n_events, cats, row = 0, set(), 0
+    tmp = Path(str(out_path) + ".tmp")          # atomic: rename only on success
+    with open(tmp, "w", newline="") as f:
         f.write("lon,lat,magnitude,time_string,depth,catalog_id,event_id\n")
-        for r in rows:
-            f.write(f"{r[0]:.5f},{r[1]:.5f},{r[2]:.3f},{r[3]},{r[4]},{r[5]},{r[6]}\n")
-    return df["catalog_id"].nunique() if len(df) else 0
+        for df in gen:
+            if df is None or not len(df):
+                continue
+            lon = df["longitude"].to_numpy(float)
+            lat = df["latitude"].to_numpy(float)
+            mag = df["magnitude"].to_numpy(float)
+            tstr = pd.to_datetime(df["time"]).dt.strftime(EPOCH).to_numpy()
+            cid = df["catalog_id"].to_numpy(int)
+            for k in range(len(df)):
+                f.write(f"{lon[k]:.5f},{lat[k]:.5f},{mag[k]:.3f},{tstr[k]},0.0,"
+                        f"{cid[k]},{cid[k]}_{row}\n")
+                row += 1
+            cats.update(int(c) for c in cid)
+            n_events += len(df)
+            del df, lon, lat, mag, tstr, cid
+    os.replace(tmp, out_path)
+    return n_events, len(cats)
 
 
 def _worker(task):
@@ -115,12 +122,14 @@ def _worker(task):
         return f"day {day}: exists, skip"
     t0 = dt.datetime.now()
     try:
-        df = simulate_day(inv_template, day, n_sims, mc)
+        n_events, n_nonempty = simulate_day(inv_template, day, n_sims, mc, path)
     except Exception as e:  # one bad day shouldn't kill the sweep
+        tmp = Path(str(path) + ".tmp")
+        if tmp.exists():
+            tmp.unlink()
         return f"day {day}: ERROR {type(e).__name__}: {e}"
-    n_nonempty = write_csep_ascii(df, n_sims, path)
     dt_s = (dt.datetime.now() - t0).total_seconds()
-    return f"day {day}: {len(df)} events, {n_nonempty} non-empty cats, {dt_s:.1f}s"
+    return f"day {day}: {n_events} events, {n_nonempty} non-empty cats, {dt_s:.1f}s"
 
 
 def main(argv=None):
@@ -145,8 +154,10 @@ def main(argv=None):
     if args.catalog:
         inv_template["fn_catalog"] = os.path.abspath(args.catalog)
     elif not os.path.isabs(inv_template.get("fn_catalog", "")):
-        # fn_catalog is relative to etas_dir
-        cand = (etas_dir / inv_template["fn_catalog"]).resolve()
+        # fn_catalog in the ETAS config is relative to the experiments dir
+        # (reference/Experiments/ETAS), where invert/predict run — i.e.
+        # etas_dir.parent, NOT etas_dir (which is output_data_<cat>).
+        cand = (etas_dir.parent / inv_template["fn_catalog"]).resolve()
         if cand.exists():
             inv_template["fn_catalog"] = str(cand)
     # fn_ip / fn_src (background & source-event tables from the inversion) are
