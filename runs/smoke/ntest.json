@@ -1,0 +1,26 @@
+{
+  "n_days": 2,
+  "n_pass_95": 2,
+  "pass_rate": 1.0,
+  "n_sims": 200,
+  "results": [
+    {
+      "day": 7,
+      "n_obs": 2,
+      "sim_mean": 3.41,
+      "sim_median": 3.0,
+      "delta1": 0.76,
+      "delta2": 0.375,
+      "pass_95": true
+    },
+    {
+      "day": 100,
+      "n_obs": 2,
+      "sim_mean": 3.25,
+      "sim_median": 3.0,
+      "delta1": 0.71,
+      "delta2": 0.48,
+      "pass_95": true
+    }
+  ]
+}

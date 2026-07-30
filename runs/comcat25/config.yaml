@@ -1,0 +1,45 @@
+data:
+  catalog_path: reference/Datasets/ComCat/ComCat_catalog.csv
+  mcut: 2.5
+  aux_start: '1971-01-01'
+  train_start: '1981-01-01'
+  val_start: '1998-01-01'
+  test_start: '2007-01-01'
+  test_end: '2020-01-17'
+model:
+  d_model: 96
+  n_layers: 4
+  d_state: 32
+  n_heads: 6
+  expand: 2
+  chunk: 64
+  flow_hidden: 96
+  flow_layers: 3
+  loss_weights:
+  - 1.0
+  - 1.0
+  - 0.5
+  sigma_min:
+  - 0.02
+  - 0.01
+  - 0.05
+  dropout: 0.1
+  mag_dequant: 0.01
+  input_noise: 0.1
+  h_bottleneck: 0
+  h_noise: 0.3
+train:
+  window: 2048
+  burn_in: 256
+  batch_size: 8
+  steps: 20000
+  lr: 0.0003
+  weight_decay: 0.03
+  warmup: 500
+  grad_clip: 1.0
+  seed: 1553
+  val_every: 250
+  val_events: 4096
+  val_ode_steps: 32
+  patience: 16
+  out_dir: runs/comcat25

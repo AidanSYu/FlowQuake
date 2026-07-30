@@ -1,0 +1,408 @@
+{
+  "overall": "RESEARCH_PREVIEW_READY",
+  "strongest_defensible_claim": "FlowQuake is a transferable neural point-process candidate that beats region-fitted ETAS temporally in dense catalogs and, when upgraded with a full-history neural-ETAS spatial head initialized from each region's ETAS inversion, beats ETAS on total likelihood across the six tested regions.",
+  "checks": [
+    {
+      "level": "PASS",
+      "name": "california_temporal_suite",
+      "message": "3-seed FlowQuake temporal LL beats ETAS on every California EarthquakeNPP catalog.",
+      "evidence": {
+        "dT": {
+          "ComCat_25": 0.05248974448868626,
+          "WHITE_06": 0.04579641250252209,
+          "SanJac_10": 0.02843007317269186,
+          "SaltonSea_10": 0.10168059157503206,
+          "SCEDC_20": 0.07842551662014952
+        },
+        "all_2_seed_sd": true
+      }
+    },
+    {
+      "level": "WARN",
+      "name": "california_spatial_total_gap",
+      "message": "The production kernel-mixture head still trails ETAS spatially; use the full-history neural-ETAS head for spatial/total claims.",
+      "evidence": {
+        "dS": {
+          "ComCat_25": -0.3690948420499094,
+          "WHITE_06": -0.46483185452125486,
+          "SanJac_10": -0.5251720178743255,
+          "SaltonSea_10": -0.32241858236951915,
+          "SCEDC_20": -0.3140842888951818
+        }
+      }
+    },
+    {
+      "level": "WARN",
+      "name": "california_block_bootstrap_temporal",
+      "message": "Autocorrelation-aware paired CIs are stricter than 3-seed means; boundary cases must be reported.",
+      "evidence": {
+        "ComCat_25": {
+          "n": 21889,
+          "mean": 0.053296262845673396,
+          "stderr": 0.002424196556111088,
+          "ci": [
+            0.03968943039040959,
+            0.06798247572732614
+          ],
+          "decision": "win"
+        },
+        "WHITE_06": {
+          "n": 24080,
+          "mean": 0.046558816418089115,
+          "stderr": 0.0024576393247004516,
+          "ci": [
+            0.030456473572587874,
+            0.06461784566084337
+          ],
+          "decision": "win"
+        },
+        "SanJac_10": {
+          "n": 4399,
+          "mean": 0.029182325735982863,
+          "stderr": 0.005437926017845598,
+          "ci": [
+            -0.005686476386749143,
+            0.07592596149130082
+          ],
+          "decision": "tie"
+        },
+        "SaltonSea_10": {
+          "n": 4103,
+          "mean": 0.10403069504755068,
+          "stderr": 0.008982074762874671,
+          "ci": [
+            0.06967317591468951,
+            0.144360564134678
+          ],
+          "decision": "win"
+        },
+        "SCEDC_20": {
+          "n": 13062,
+          "mean": 0.07812067719724688,
+          "stderr": 0.003605676616573439,
+          "ci": [
+            0.06028236923397232,
+            0.09728371647260345
+          ],
+          "decision": "win"
+        }
+      }
+    },
+    {
+      "level": "PASS",
+      "name": "flowquake_csep_consistency",
+      "message": "FlowQuake standalone CSEP consistency is present.",
+      "evidence": {
+        "N": {
+          "n_eval": 100,
+          "n_pass": 95,
+          "pass_rate": 0.95
+        },
+        "S": {
+          "n_eval": 92,
+          "n_pass": 85,
+          "pass_rate": 0.9239130434782609
+        },
+        "M": {
+          "n_eval": 92,
+          "n_pass": 90,
+          "pass_rate": 0.9782608695652174
+        }
+      }
+    },
+    {
+      "level": "PASS",
+      "name": "etas_csep_head_to_head",
+      "message": "Validated ETAS CSEP head-to-head appears reportable.",
+      "evidence": {}
+    },
+    {
+      "level": "PASS",
+      "name": "dense_cross_regime_temporal",
+      "message": "Native FlowQuake clears the temporal ETAS bar on the dense cross-regime set.",
+      "evidence": {
+        "California": "win",
+        "Italy": "win",
+        "Chile": "win"
+      }
+    },
+    {
+      "level": "WARN",
+      "name": "pooled_global_temporal",
+      "message": "One pooled checkpoint is promising, but this is pooled deployment, not leave-one-region-out zero-shot.",
+      "evidence": {
+        "California": {
+          "pooled": {
+            "n": 21889,
+            "mean": 0.03130866952703879,
+            "stderr": 0.0020762193789806826,
+            "ci": [
+              0.020692530929288605,
+              0.04295179178608234
+            ],
+            "decision": "win"
+          }
+        },
+        "Italy": {
+          "pooled": {
+            "n": 10908,
+            "mean": 0.10166337844615335,
+            "stderr": 0.004642760153711173,
+            "ci": [
+              0.0719709004787702,
+              0.13524462459502848
+            ],
+            "decision": "win"
+          }
+        },
+        "Japan": {
+          "pooled": {
+            "n": 14888,
+            "mean": 0.011374211994632705,
+            "stderr": 0.004270298205142142,
+            "ci": [
+              -0.006308663772387962,
+              0.030577336535912544
+            ],
+            "decision": "tie"
+          }
+        },
+        "Chile": {
+          "pooled": {
+            "n": 6546,
+            "mean": 0.021952407607499745,
+            "stderr": 0.00771753741767527,
+            "ci": [
+              -0.0031681826361627395,
+              0.051285061415572805
+            ],
+            "decision": "tie"
+          }
+        },
+        "Greece": {
+          "pooled": {
+            "n": 1748,
+            "mean": -0.05523208911374092,
+            "stderr": 0.018122624624144375,
+            "ci": [
+              -0.10783169200435412,
+              -0.0007905959495038515
+            ],
+            "decision": "loss"
+          },
+          "fewshot": {
+            "n": 1748,
+            "mean": -0.007865500483363342,
+            "stderr": 0.014631096221546817,
+            "ci": [
+              -0.06023629908030463,
+              0.04784786216670824
+            ],
+            "decision": "tie"
+          }
+        },
+        "Iran": {
+          "pooled": {
+            "n": 1121,
+            "mean": -0.15796958495846658,
+            "stderr": 0.03170250131656229,
+            "ci": [
+              -0.2465962116319447,
+              -0.06454228896759451
+            ],
+            "decision": "loss"
+          },
+          "fewshot": {
+            "n": 1121,
+            "mean": -0.044825084353649486,
+            "stderr": 0.024210064150671208,
+            "ci": [
+              -0.12312744902425143,
+              0.041115646216830365
+            ],
+            "decision": "tie"
+          }
+        }
+      }
+    },
+    {
+      "level": "PASS",
+      "name": "bibliography_and_first_claims",
+      "message": "No [verify] markers remain in manuscript.",
+      "evidence": {
+        "verify_markers": 0
+      }
+    },
+    {
+      "level": "WARN",
+      "name": "legacy_package_surface",
+      "message": "src/eqnpp exists but pyproject packages only flowquake; mark it legacy or remove before release.",
+      "evidence": {}
+    },
+    {
+      "level": "PASS",
+      "name": "spatial_win_comcat",
+      "message": "Full-history neural-ETAS head vs benchmark ETAS spatial LL on ComCat: dS 0.06 CI [0.0509, 0.0692] (win).",
+      "evidence": {
+        "summary": {
+          "test_sll_neural": -8.6297607421875,
+          "test_sll_etas": -8.68977038723882,
+          "dS_mean": 0.06,
+          "dS_ci": [
+            0.0509,
+            0.0692
+          ],
+          "decision": "win",
+          "n_test": 21889,
+          "val_sll": -8.788384437561035,
+          "bg_weights[unif,kde...]": [
+            0.12905,
+            0.3984900116920471,
+            0.24100999534130096,
+            0.1752299964427948,
+            0.05621999874711037
+          ],
+          "alpha_far": 0.9639248847961426,
+          "mu_adj": 2.6997389793395996,
+          "config": "full_s0",
+          "seed": 0
+        }
+      }
+    },
+    {
+      "level": "PASS",
+      "name": "total_likelihood_win",
+      "message": "Paired total-likelihood (flow temporal + neural-ETAS spatial) vs ETAS on ComCat.",
+      "evidence": {
+        "test": {
+          "mean": 0.1133,
+          "ci": [
+            0.1006,
+            0.1268
+          ],
+          "decision": "win",
+          "win_rate": 0.5654,
+          "p_boot": 0.0005
+        },
+        "forward": {
+          "mean": 0.1241,
+          "ci": [
+            0.1035,
+            0.1455
+          ],
+          "decision": "win",
+          "win_rate": 0.5516,
+          "p_boot": 0.0005
+        }
+      }
+    },
+    {
+      "level": "PASS",
+      "name": "out_of_time_2020_2026",
+      "message": "Frozen FQ vs frozen ETAS on 2020-2026 forward window: dT 0.0574 (SE 0.0041, win rate 0.61) on 10187 events.",
+      "evidence": {
+        "etas_forward": {
+          "window": [
+            "2020-01-17 00:00:00",
+            "2026-07-01 00:00:00"
+          ],
+          "n": 10187,
+          "tll": 1.0102738057926097,
+          "sll": -8.474594617572162,
+          "nll": 7.464320811779553,
+          "params_frozen_from": "ComCat_25 inversion (train<=2007, published with benchmark)"
+        }
+      }
+    },
+    {
+      "level": "PASS",
+      "name": "familywise_significance",
+      "message": "Holm-Bonferroni across 6-region dT family: significant in ['California', 'Italy', 'Chile']; tie claims gated by TOST (Iran fails equivalence; Greece passes at +/-0.1).",
+      "evidence": {
+        "holm": {
+          "California": {
+            "p_raw": 0.0005,
+            "p_holm": 0.003,
+            "significant_05": true
+          },
+          "Italy": {
+            "p_raw": 0.0005,
+            "p_holm": 0.003,
+            "significant_05": true
+          },
+          "Japan": {
+            "p_raw": 0.13697,
+            "p_holm": 0.27393,
+            "significant_05": false
+          },
+          "Chile": {
+            "p_raw": 0.009,
+            "p_holm": 0.03599,
+            "significant_05": true
+          },
+          "Greece": {
+            "p_raw": 0.64784,
+            "p_holm": 0.64784,
+            "significant_05": false
+          },
+          "Iran": {
+            "p_raw": 0.09098,
+            "p_holm": 0.27293,
+            "significant_05": false
+          }
+        }
+      }
+    },
+    {
+      "level": "PASS",
+      "name": "full_history_head_csep",
+      "message": "Likelihood-winning full-history head run through the same CSEP harness (100 days x 10^3, matched budget): N 95/100, S 79/85, M 90/92. Paired S-test vs ETAS on 83 shared days: head 77, ETAS 77, 10 discordant (McNemar p~1.0) -> statistically indistinguishable spatial calibration while beating ETAS on per-event spatial likelihood.",
+      "evidence": {
+        "head_summary": {
+          "N": {
+            "n_eval": 100,
+            "n_pass": 95,
+            "pass_rate": 0.95
+          },
+          "S": {
+            "n_eval": 85,
+            "n_pass": 79,
+            "pass_rate": 0.9294117647058824
+          },
+          "M": {
+            "n_eval": 92,
+            "n_pass": 90,
+            "pass_rate": 0.9782608695652174
+          }
+        },
+        "shared_days": 83,
+        "head_S_pass": 77,
+        "etas_S_pass": 77
+      }
+    },
+    {
+      "level": "PASS",
+      "name": "operational_replacement_claim",
+      "message": "FlowQuake beats benchmark ETAS on temporal, spatial and total likelihood, replicates on a 2020-2026 out-of-time window (survives an ETAS-refit-through-2020 fairness control), and is statistically indistinguishable from ETAS on all three CSEP consistency tests when the likelihood-winning full-history head is run through the incumbent's own harness. The remaining items are deployment engineering, not evidence: the head is initialised on the target region's ETAS inversion plus a causal KDE background (a per-region preprocessing step, not inversion-free), and this is a research prototype rather than a hardened operational system.",
+      "evidence": {
+        "validated_since_last_audit": [
+          "neural-ETAS head beats benchmark ETAS spatially on ComCat (gate-closed exactness to float precision; default init uses a small KDE gate)",
+          "2020-2026 out-of-time replication of temporal, spatial and total wins (dTot +0.124; +0.108 vs ETAS-refit-2020)",
+          "ETAS-refit-through-2020 fairness control: refit improves ETAS forward NLL by only 0.016 nats",
+          "CSEP re-validated with the full-history head: S-test statistically tied with ETAS (McNemar p~1.0)",
+          "Holm-Bonferroni + TOST hardening of the cross-regime family"
+        ],
+        "remaining_deployment_caveats": [
+          "head initialised on the target region's ETAS inversion + causal KDE (per-region preprocessing)",
+          "research prototype; not a hardened / registered operational forecasting system"
+        ]
+      }
+    }
+  ],
+  "next_rungs": [
+    "Run an untouched, registered prospective rolling forecast on a future catalog window.",
+    "GPU-vectorize the full-history head grid simulator for cheaper CSEP re-runs.",
+    "Reduce per-region preprocessing toward an inversion-free head initialization.",
+    "Clean legacy package surface and verify all bibliography/first-claim markers."
+  ]
+}

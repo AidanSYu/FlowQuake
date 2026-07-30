@@ -1,10 +1,17 @@
 __pycache__/
 *.pyc
 .pytest_cache/
-runs/
 reference/
 *.egg-info/
 .venv/
 .pytest_cache/
 _autostpp_tmp/
-figures/
+
+# Run artifacts: keep evaluation metrics and configs, exclude regenerable bulk
+# (checkpoints, trigger-feature caches, per-event and CSEP forecast grids).
+runs/**
+!runs/**/
+!runs/**/*.json
+!runs/**/*.yaml
+
+# Paper figures are tracked; regenerate with scripts/make_figures.py

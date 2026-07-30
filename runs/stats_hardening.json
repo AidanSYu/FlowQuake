@@ -1,0 +1,437 @@
+{
+  "per_region": {
+    "California": {
+      "n": 21889,
+      "pairing": {
+        "n_etas_scored": 21889,
+        "n_model_scored": 21889,
+        "n_matched": 21889,
+        "coverage_vs_etas": 1.0,
+        "pairing_key": "time+duplicate_rank"
+      },
+      "temporal_variant": "native",
+      "dT_mean": 0.0533,
+      "dT_ci": [
+        0.0402,
+        0.0674
+      ],
+      "dT_p_boot": 0.0005,
+      "dT_decision_raw": "win",
+      "dT_abs_below_0.05": false,
+      "dT_tost_0.05": {
+        "margin": 0.05,
+        "ci90": [
+          0.042131159086877375,
+          0.06506765965057434
+        ],
+        "equivalent": false
+      },
+      "dT_tost_0.1": {
+        "margin": 0.1,
+        "ci90": [
+          0.042131159086877375,
+          0.06506765965057434
+        ],
+        "equivalent": true
+      },
+      "dTot_mean": -0.3107,
+      "dTot_ci": [
+        -0.3511,
+        -0.2688
+      ],
+      "dTot_decision": "loss"
+    },
+    "Italy": {
+      "n": 10908,
+      "pairing": {
+        "n_etas_scored": 10908,
+        "n_model_scored": 10908,
+        "n_matched": 10908,
+        "coverage_vs_etas": 1.0,
+        "pairing_key": "time+duplicate_rank"
+      },
+      "temporal_variant": "native",
+      "dT_mean": 0.0712,
+      "dT_ci": [
+        0.0496,
+        0.0969
+      ],
+      "dT_p_boot": 0.0005,
+      "dT_decision_raw": "win",
+      "dT_abs_below_0.05": false,
+      "dT_tost_0.05": {
+        "margin": 0.05,
+        "ci90": [
+          0.05183296882176538,
+          0.09124797618892957
+        ],
+        "equivalent": false
+      },
+      "dT_tost_0.1": {
+        "margin": 0.1,
+        "ci90": [
+          0.05183296882176538,
+          0.09124797618892957
+        ],
+        "equivalent": true
+      },
+      "dTot_mean": 0.0041,
+      "dTot_ci": [
+        -0.0422,
+        0.0491
+      ],
+      "dTot_decision": "tie",
+      "dTot_tost_0.05": {
+        "margin": 0.05,
+        "ci90": [
+          -0.03501359640036778,
+          0.04377140797337308
+        ],
+        "equivalent": true
+      },
+      "dTot_tost_0.1": {
+        "margin": 0.1,
+        "ci90": [
+          -0.03501359640036778,
+          0.04377140797337308
+        ],
+        "equivalent": true
+      }
+    },
+    "Japan": {
+      "n": 14886,
+      "pairing": {
+        "n_etas_scored": 15465,
+        "n_model_scored": 14886,
+        "n_matched": 14886,
+        "coverage_vs_etas": 0.9626,
+        "pairing_key": "time+duplicate_rank"
+      },
+      "temporal_variant": "native",
+      "dT_mean": -0.0139,
+      "dT_ci": [
+        -0.0319,
+        0.0049
+      ],
+      "dT_p_boot": 0.13697,
+      "dT_decision_raw": "tie",
+      "dT_abs_below_0.05": true,
+      "dT_tost_0.05": {
+        "margin": 0.05,
+        "ci90": [
+          -0.028939975305366163,
+          0.0010742098537419409
+        ],
+        "equivalent": true
+      },
+      "dT_tost_0.1": {
+        "margin": 0.1,
+        "ci90": [
+          -0.028939975305366163,
+          0.0010742098537419409
+        ],
+        "equivalent": true
+      },
+      "dTot_mean": -0.5382,
+      "dTot_ci": [
+        -0.5885,
+        -0.4891
+      ],
+      "dTot_decision": "loss"
+    },
+    "Chile": {
+      "n": 6546,
+      "pairing": {
+        "n_etas_scored": 6742,
+        "n_model_scored": 6546,
+        "n_matched": 6546,
+        "coverage_vs_etas": 0.9709,
+        "pairing_key": "time+duplicate_rank"
+      },
+      "temporal_variant": "native",
+      "dT_mean": 0.0343,
+      "dT_ci": [
+        0.0069,
+        0.0651
+      ],
+      "dT_p_boot": 0.009,
+      "dT_decision_raw": "win",
+      "dT_abs_below_0.05": true,
+      "dT_tost_0.05": {
+        "margin": 0.05,
+        "ci90": [
+          0.011362163025387352,
+          0.05884719458732138
+        ],
+        "equivalent": false
+      },
+      "dT_tost_0.1": {
+        "margin": 0.1,
+        "ci90": [
+          0.011362163025387352,
+          0.05884719458732138
+        ],
+        "equivalent": true
+      },
+      "dTot_mean": -0.2305,
+      "dTot_ci": [
+        -0.2712,
+        -0.1892
+      ],
+      "dTot_decision": "loss"
+    },
+    "Greece": {
+      "n": 1748,
+      "pairing": {
+        "n_etas_scored": 1901,
+        "n_model_scored": 1748,
+        "n_matched": 1748,
+        "coverage_vs_etas": 0.9195,
+        "pairing_key": "time+duplicate_rank"
+      },
+      "temporal_variant": "fewshot",
+      "dT_mean": -0.0125,
+      "dT_ci": [
+        -0.0642,
+        0.0417
+      ],
+      "dT_p_boot": 0.64784,
+      "dT_decision_raw": "tie",
+      "dT_abs_below_0.05": true,
+      "dT_tost_0.05": {
+        "margin": 0.05,
+        "ci90": [
+          -0.05598692646015908,
+          0.035200303940858824
+        ],
+        "equivalent": false
+      },
+      "dT_tost_0.1": {
+        "margin": 0.1,
+        "ci90": [
+          -0.05598692646015908,
+          0.035200303940858824
+        ],
+        "equivalent": true
+      },
+      "dTot_mean": -0.1936,
+      "dTot_ci": [
+        -0.2859,
+        -0.106
+      ],
+      "dTot_decision": "loss"
+    },
+    "Iran": {
+      "n": 1121,
+      "pairing": {
+        "n_etas_scored": 1259,
+        "n_model_scored": 1121,
+        "n_matched": 1121,
+        "coverage_vs_etas": 0.8904,
+        "pairing_key": "time+duplicate_rank"
+      },
+      "temporal_variant": "fewshot",
+      "dT_mean": -0.0634,
+      "dT_ci": [
+        -0.1335,
+        0.0112
+      ],
+      "dT_p_boot": 0.09098,
+      "dT_decision_raw": "tie",
+      "dT_abs_below_0.05": false,
+      "dT_tost_0.05": {
+        "margin": 0.05,
+        "ci90": [
+          -0.12210308721050286,
+          -0.0013525685331943467
+        ],
+        "equivalent": false
+      },
+      "dT_tost_0.1": {
+        "margin": 0.1,
+        "ci90": [
+          -0.12210308721050286,
+          -0.0013525685331943467
+        ],
+        "equivalent": false
+      },
+      "dTot_mean": -0.4297,
+      "dTot_ci": [
+        -0.607,
+        -0.2628
+      ],
+      "dTot_decision": "loss"
+    }
+  },
+  "family_dT_holm": {
+    "California": {
+      "p_raw": 0.0005,
+      "p_holm": 0.003,
+      "significant_05": true
+    },
+    "Italy": {
+      "p_raw": 0.0005,
+      "p_holm": 0.003,
+      "significant_05": true
+    },
+    "Japan": {
+      "p_raw": 0.13697,
+      "p_holm": 0.27393,
+      "significant_05": false
+    },
+    "Chile": {
+      "p_raw": 0.009,
+      "p_holm": 0.03599,
+      "significant_05": true
+    },
+    "Greece": {
+      "p_raw": 0.64784,
+      "p_holm": 0.64784,
+      "significant_05": false
+    },
+    "Iran": {
+      "p_raw": 0.09098,
+      "p_holm": 0.27293,
+      "significant_05": false
+    }
+  },
+  "notes": [
+    "family = one headline dT claim per region; Holm step-down; native for California/Italy/Japan/Chile, few-shot only for sparse Greece/Iran",
+    "tie claims require TOST equivalence, not just a CI crossing 0; positive effects below 0.05 nats/event are small wins, not large-margin wins",
+    "total_with_head_family: flow temporal (native; fewshot for Greece/Iran) + region-trained neural-ETAS spatial head vs region-fitted ETAS; the head requires the region's ETAS inversion (upgrade, not inversion-free); non-California/Italy totals are paired on the intersection of temporal/head/ETAS-scored events and report coverage"
+  ],
+  "total_with_head_family": {
+    "California": {
+      "n": 21889,
+      "dTot_mean": 0.1133,
+      "dTot_ci": [
+        0.1006,
+        0.1261
+      ],
+      "decision": "win",
+      "p_boot": 0.0005,
+      "dTot_abs_below_0.05": false,
+      "temporal_variant": "native",
+      "pairing": {
+        "n_etas_scored": 21889,
+        "n_temporal_scored": 21889,
+        "n_head_scored": 21889,
+        "n_matched": 21889,
+        "coverage_vs_etas": 1.0,
+        "pairing_key": "time+duplicate_rank"
+      },
+      "p_holm": 0.003,
+      "significant_05_holm": true
+    },
+    "Italy": {
+      "n": 10908,
+      "dTot_mean": 0.2095,
+      "dTot_ci": [
+        0.1862,
+        0.2332
+      ],
+      "decision": "win",
+      "p_boot": 0.0005,
+      "dTot_abs_below_0.05": false,
+      "temporal_variant": "native",
+      "pairing": {
+        "n_etas_scored": 10908,
+        "n_temporal_scored": 10908,
+        "n_head_scored": 10908,
+        "n_matched": 10908,
+        "coverage_vs_etas": 1.0,
+        "pairing_key": "time+duplicate_rank"
+      },
+      "p_holm": 0.003,
+      "significant_05_holm": true
+    },
+    "Japan": {
+      "n": 14886,
+      "dTot_mean": 0.039,
+      "dTot_ci": [
+        0.0163,
+        0.062
+      ],
+      "decision": "win",
+      "p_boot": 0.0015,
+      "dTot_abs_below_0.05": true,
+      "temporal_variant": "native",
+      "pairing": {
+        "n_etas_scored": 15465,
+        "n_temporal_scored": 14886,
+        "n_head_scored": 15465,
+        "n_matched": 14886,
+        "coverage_vs_etas": 0.9626,
+        "pairing_key": "time+duplicate_rank"
+      },
+      "p_holm": 0.0045,
+      "significant_05_holm": true
+    },
+    "Chile": {
+      "n": 6546,
+      "dTot_mean": 0.0608,
+      "dTot_ci": [
+        0.0349,
+        0.09
+      ],
+      "decision": "win",
+      "p_boot": 0.0005,
+      "dTot_abs_below_0.05": false,
+      "temporal_variant": "native",
+      "pairing": {
+        "n_etas_scored": 6742,
+        "n_temporal_scored": 6546,
+        "n_head_scored": 6742,
+        "n_matched": 6546,
+        "coverage_vs_etas": 0.9709,
+        "pairing_key": "time+duplicate_rank"
+      },
+      "p_holm": 0.003,
+      "significant_05_holm": true
+    },
+    "Greece": {
+      "n": 1748,
+      "dTot_mean": 0.0756,
+      "dTot_ci": [
+        0.0224,
+        0.1316
+      ],
+      "decision": "win",
+      "p_boot": 0.0055,
+      "dTot_abs_below_0.05": false,
+      "temporal_variant": "fewshot",
+      "pairing": {
+        "n_etas_scored": 1901,
+        "n_temporal_scored": 1748,
+        "n_head_scored": 1901,
+        "n_matched": 1748,
+        "coverage_vs_etas": 0.9195,
+        "pairing_key": "time+duplicate_rank"
+      },
+      "p_holm": 0.011,
+      "significant_05_holm": true
+    },
+    "Iran": {
+      "n": 1121,
+      "dTot_mean": 0.0844,
+      "dTot_ci": [
+        0.0098,
+        0.1711
+      ],
+      "decision": "win",
+      "p_boot": 0.0185,
+      "dTot_abs_below_0.05": false,
+      "temporal_variant": "fewshot",
+      "pairing": {
+        "n_etas_scored": 1259,
+        "n_temporal_scored": 1121,
+        "n_head_scored": 1259,
+        "n_matched": 1121,
+        "coverage_vs_etas": 0.8904,
+        "pairing_key": "time+duplicate_rank"
+      },
+      "p_holm": 0.0185,
+      "significant_05_holm": true
+    }
+  }
+}

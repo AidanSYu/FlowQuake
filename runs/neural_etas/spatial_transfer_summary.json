@@ -1,0 +1,145 @@
+{
+  "note": "spatial-head transfer: source-trained head applied to target ETAS-init features; dS vs target region-fitted ETAS on target test split",
+  "within_regime": [
+    {
+      "source": "ComCat",
+      "target": "Italy",
+      "src_mc": 2.5,
+      "tgt_mc": 2.5,
+      "zero_shot_dS": 0.0726,
+      "zero_shot": "win",
+      "few_shot_dS": 0.1063,
+      "few_shot": "win",
+      "target_own_dS": 0.1383
+    },
+    {
+      "source": "Japan",
+      "target": "Chile",
+      "src_mc": 4.0,
+      "tgt_mc": 4.0,
+      "zero_shot_dS": 0.0949,
+      "zero_shot": "win",
+      "few_shot_dS": 0.1131,
+      "few_shot": "win",
+      "target_own_dS": 0.0267
+    },
+    {
+      "source": "Japan",
+      "target": "Greece",
+      "src_mc": 4.0,
+      "tgt_mc": 4.0,
+      "zero_shot_dS": 0.0282,
+      "zero_shot": "tie",
+      "few_shot_dS": 0.1044,
+      "few_shot": "win",
+      "target_own_dS": 0.0857
+    },
+    {
+      "source": "Japan",
+      "target": "Iran",
+      "src_mc": 4.0,
+      "tgt_mc": 4.0,
+      "zero_shot_dS": 0.0637,
+      "zero_shot": "win",
+      "few_shot_dS": 0.1353,
+      "few_shot": "win",
+      "target_own_dS": 0.1465
+    },
+    {
+      "source": "Chile",
+      "target": "Japan",
+      "src_mc": 4.0,
+      "tgt_mc": 4.0,
+      "zero_shot_dS": 0.016,
+      "zero_shot": "win",
+      "few_shot_dS": 0.0196,
+      "few_shot": "win",
+      "target_own_dS": 0.0525
+    },
+    {
+      "source": "Chile",
+      "target": "Greece",
+      "src_mc": 4.0,
+      "tgt_mc": 4.0,
+      "zero_shot_dS": 0.0192,
+      "zero_shot": "win",
+      "few_shot_dS": 0.037,
+      "few_shot": "win",
+      "target_own_dS": 0.0857
+    },
+    {
+      "source": "Chile",
+      "target": "Iran",
+      "src_mc": 4.0,
+      "tgt_mc": 4.0,
+      "zero_shot_dS": 0.0156,
+      "zero_shot": "win",
+      "few_shot_dS": 0.0457,
+      "few_shot": "win",
+      "target_own_dS": 0.1465
+    }
+  ],
+  "cross_completeness": [
+    {
+      "source": "ComCat",
+      "target": "Japan",
+      "src_mc": 2.5,
+      "tgt_mc": 4.0,
+      "zero_shot_dS": -0.0672,
+      "zero_shot": "loss",
+      "few_shot_dS": 0.0012,
+      "few_shot": "tie",
+      "target_own_dS": 0.0525
+    },
+    {
+      "source": "ComCat",
+      "target": "Chile",
+      "src_mc": 2.5,
+      "tgt_mc": 4.0,
+      "zero_shot_dS": -0.2292,
+      "zero_shot": "loss",
+      "few_shot_dS": -0.1383,
+      "few_shot": "loss",
+      "target_own_dS": 0.0267
+    },
+    {
+      "source": "ComCat",
+      "target": "Greece",
+      "src_mc": 2.5,
+      "tgt_mc": 4.0,
+      "zero_shot_dS": -0.1464,
+      "zero_shot": "loss",
+      "few_shot_dS": -0.1027,
+      "few_shot": "loss",
+      "target_own_dS": 0.0857
+    },
+    {
+      "source": "ComCat",
+      "target": "Iran",
+      "src_mc": 2.5,
+      "tgt_mc": 4.0,
+      "zero_shot_dS": -0.328,
+      "zero_shot": "loss",
+      "few_shot_dS": -0.3052,
+      "few_shot": "loss",
+      "target_own_dS": 0.1465
+    }
+  ],
+  "mlp_decomposition_japan_source": {
+    "Chile": {
+      "full": 0.0949,
+      "bg_only": 0.0642,
+      "mlp_adds": 0.0308
+    },
+    "Greece": {
+      "full": 0.0282,
+      "bg_only": -0.015,
+      "mlp_adds": 0.0432
+    },
+    "Iran": {
+      "full": 0.0637,
+      "bg_only": 0.0536,
+      "mlp_adds": 0.0101
+    }
+  }
+}

@@ -1,0 +1,188 @@
+{
+  "n_days": 20,
+  "n_pass_95": 18,
+  "pass_rate": 0.9,
+  "n_sims": 1000,
+  "results": [
+    {
+      "day": 0,
+      "n_obs": 0,
+      "sim_mean": 3.115,
+      "sim_median": 2.0,
+      "delta1": 1.0,
+      "delta2": 0.093,
+      "pass_95": true
+    },
+    {
+      "day": 250,
+      "n_obs": 3,
+      "sim_mean": 4.009,
+      "sim_median": 3.0,
+      "delta1": 0.634,
+      "delta2": 0.537,
+      "pass_95": true
+    },
+    {
+      "day": 501,
+      "n_obs": 3,
+      "sim_mean": 3.691,
+      "sim_median": 3.0,
+      "delta1": 0.614,
+      "delta2": 0.565,
+      "pass_95": true
+    },
+    {
+      "day": 752,
+      "n_obs": 4,
+      "sim_mean": 4.793,
+      "sim_median": 4.0,
+      "delta1": 0.584,
+      "delta2": 0.559,
+      "pass_95": true
+    },
+    {
+      "day": 1002,
+      "n_obs": 2,
+      "sim_mean": 3.131,
+      "sim_median": 3.0,
+      "delta1": 0.756,
+      "delta2": 0.422,
+      "pass_95": true
+    },
+    {
+      "day": 1253,
+      "n_obs": 19,
+      "sim_mean": 7.293,
+      "sim_median": 6.0,
+      "delta1": 0.021,
+      "delta2": 0.984,
+      "pass_95": false
+    },
+    {
+      "day": 1504,
+      "n_obs": 5,
+      "sim_mean": 4.183,
+      "sim_median": 4.0,
+      "delta1": 0.366,
+      "delta2": 0.757,
+      "pass_95": true
+    },
+    {
+      "day": 1754,
+      "n_obs": 5,
+      "sim_mean": 3.422,
+      "sim_median": 3.0,
+      "delta1": 0.243,
+      "delta2": 0.858,
+      "pass_95": true
+    },
+    {
+      "day": 2005,
+      "n_obs": 1,
+      "sim_mean": 3.607,
+      "sim_median": 3.0,
+      "delta1": 0.927,
+      "delta2": 0.178,
+      "pass_95": true
+    },
+    {
+      "day": 2256,
+      "n_obs": 1,
+      "sim_mean": 2.996,
+      "sim_median": 3.0,
+      "delta1": 0.884,
+      "delta2": 0.287,
+      "pass_95": true
+    },
+    {
+      "day": 2506,
+      "n_obs": 3,
+      "sim_mean": 3.577,
+      "sim_median": 3.0,
+      "delta1": 0.645,
+      "delta2": 0.542,
+      "pass_95": true
+    },
+    {
+      "day": 2757,
+      "n_obs": 5,
+      "sim_mean": 3.561,
+      "sim_median": 3.0,
+      "delta1": 0.274,
+      "delta2": 0.838,
+      "pass_95": true
+    },
+    {
+      "day": 3008,
+      "n_obs": 0,
+      "sim_mean": 4.718,
+      "sim_median": 4.0,
+      "delta1": 1.0,
+      "delta2": 0.023,
+      "pass_95": false
+    },
+    {
+      "day": 3258,
+      "n_obs": 4,
+      "sim_mean": 3.278,
+      "sim_median": 3.0,
+      "delta1": 0.37,
+      "delta2": 0.775,
+      "pass_95": true
+    },
+    {
+      "day": 3509,
+      "n_obs": 6,
+      "sim_mean": 3.573,
+      "sim_median": 3.0,
+      "delta1": 0.133,
+      "delta2": 0.914,
+      "pass_95": true
+    },
+    {
+      "day": 3760,
+      "n_obs": 3,
+      "sim_mean": 3.852,
+      "sim_median": 3.0,
+      "delta1": 0.619,
+      "delta2": 0.568,
+      "pass_95": true
+    },
+    {
+      "day": 4010,
+      "n_obs": 3,
+      "sim_mean": 2.642,
+      "sim_median": 2.0,
+      "delta1": 0.43,
+      "delta2": 0.756,
+      "pass_95": true
+    },
+    {
+      "day": 4261,
+      "n_obs": 6,
+      "sim_mean": 3.383,
+      "sim_median": 3.0,
+      "delta1": 0.134,
+      "delta2": 0.923,
+      "pass_95": true
+    },
+    {
+      "day": 4512,
+      "n_obs": 8,
+      "sim_mean": 3.25,
+      "sim_median": 3.0,
+      "delta1": 0.055,
+      "delta2": 0.963,
+      "pass_95": true
+    },
+    {
+      "day": 4763,
+      "n_obs": 3,
+      "sim_mean": 4.04,
+      "sim_median": 3.0,
+      "delta1": 0.637,
+      "delta2": 0.537,
+      "pass_95": true
+    }
+  ]
+}

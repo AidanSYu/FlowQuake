@@ -1,0 +1,64 @@
+{
+  "ckpt": "runs/final_s1555/ckpt_best.pt",
+  "n_sims": 500,
+  "n_days": 2,
+  "summary": {
+    "N": {
+      "n_eval": 2,
+      "n_pass": 1,
+      "pass_rate": 0.5
+    },
+    "S": {
+      "n_eval": 1,
+      "n_pass": 1,
+      "pass_rate": 1.0
+    },
+    "M": {
+      "n_eval": 1,
+      "n_pass": 1,
+      "pass_rate": 1.0
+    }
+  },
+  "results": [
+    {
+      "day": 7,
+      "n_obs": 2,
+      "n_nonempty": 460,
+      "sim_mean": 3.512,
+      "n_obs_csep": 2,
+      "N": {
+        "quantile": [
+          0.694,
+          0.496
+        ]
+      },
+      "S": {
+        "quantile": [
+          0.8485523385300668,
+          0.17817371937639198
+        ],
+        "observed": -6.717804695023691
+      },
+      "M": {
+        "quantile": [
+          0.41202672605790647,
+          0.5946547884187082
+        ],
+        "observed": 0.14049246089216613
+      }
+    },
+    {
+      "day": 100,
+      "n_obs": 2,
+      "n_nonempty": 458,
+      "sim_mean": 3.246,
+      "n_obs_csep": 0,
+      "N": {
+        "quantile": [
+          1.0,
+          0.086
+        ]
+      }
+    }
+  ]
+}

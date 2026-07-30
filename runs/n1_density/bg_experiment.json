@@ -1,0 +1,10 @@
+{
+  "baseline (committed grid)": -9.053810119628906,
+  "fixed s8 floor2 train": -9.117033958435059,
+  "fixed s8 floor5 pretest": -9.082688331604004,
+  "adapt k6 smin1 floor2 train": -9.010037422180176,
+  "adapt k6 smin1 floor2 pretest": -8.947998046875,
+  "adapt k10 smin1.5 floor2 pretest": -8.964984893798828,
+  "adapt k6 smin1 floor5 pretest": -8.950501441955566,
+  "adapt k4 smin0.75 floor3 pretest": -8.945717811584473
+}

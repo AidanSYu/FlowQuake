@@ -1,0 +1,38 @@
+{
+  "Japan": {
+    "mc_train": 3.65,
+    "mc_test": 3.75,
+    "b_train": 0.79,
+    "b_test": 0.85,
+    "recommend_mcut": 4.0,
+    "n_train_at_mcut": 19929,
+    "n_test_at_mcut": 14886
+  },
+  "Chile": {
+    "mc_train": 3.95,
+    "mc_test": 3.65,
+    "b_train": 0.94,
+    "b_test": 0.76,
+    "recommend_mcut": 4.0,
+    "n_train_at_mcut": 11820,
+    "n_test_at_mcut": 6546
+  },
+  "Greece": {
+    "mc_train": 3.65,
+    "mc_test": 3.85,
+    "b_train": 1.13,
+    "b_test": 1.0,
+    "recommend_mcut": 4.0,
+    "n_train_at_mcut": 2612,
+    "n_test_at_mcut": 1748
+  },
+  "Iran": {
+    "mc_train": 3.85,
+    "mc_test": 3.85,
+    "b_train": 0.89,
+    "b_test": 0.95,
+    "recommend_mcut": 4.0,
+    "n_train_at_mcut": 2010,
+    "n_test_at_mcut": 1121
+  }
+}

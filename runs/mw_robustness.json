@@ -1,0 +1,186 @@
+{
+  "california": {
+    "comcat_mc25_headline": {
+      "n": 21889,
+      "fq_tll": 1.487639097333936,
+      "etas_tll": 1.4343428344882627,
+      "dT": {
+        "mean": 0.0533,
+        "ci": [
+          0.0404,
+          0.0682
+        ],
+        "decision": "win"
+      },
+      "dS": {
+        "mean": -0.364,
+        "ci": [
+          -0.3946,
+          -0.3337
+        ],
+        "decision": "loss"
+      },
+      "dTot": {
+        "mean": -0.3107,
+        "ci": [
+          -0.3504,
+          -0.2698
+        ],
+        "decision": "loss"
+      },
+      "train_events": 55442
+    },
+    "comcat_mc25_production_on_Mge3": {
+      "n": 7850,
+      "fq_tll": 1.9014528277558704,
+      "etas_tll": 1.827500561538091,
+      "dT": {
+        "mean": 0.074,
+        "ci": [
+          0.0503,
+          0.1005
+        ],
+        "decision": "win"
+      },
+      "dS": {
+        "mean": -0.3709,
+        "ci": [
+          -0.4282,
+          -0.3125
+        ],
+        "decision": "loss"
+      },
+      "dTot": {
+        "mean": -0.297,
+        "ci": [
+          -0.3733,
+          -0.2167
+        ],
+        "decision": "loss"
+      }
+    },
+    "comcat_mc30_retrained": {
+      "n": 7007,
+      "fq_tll": 0.7782561694731739,
+      "etas_tll": 0.857430753532438,
+      "dT": {
+        "mean": -0.0792,
+        "ci": [
+          -0.1128,
+          -0.0418
+        ],
+        "decision": "loss"
+      },
+      "dS": {
+        "mean": -0.4031,
+        "ci": [
+          -0.4678,
+          -0.3395
+        ],
+        "decision": "loss"
+      },
+      "dTot": {
+        "mean": -0.4822,
+        "ci": [
+          -0.5685,
+          -0.3914
+        ],
+        "decision": "loss"
+      },
+      "train_events": 17534
+    }
+  },
+  "italy": {
+    "ml_mc25_headline": {
+      "n": 10908,
+      "fq_tll": 1.322468721459759,
+      "etas_tll": 1.2512631525086881,
+      "dT": {
+        "mean": 0.0712,
+        "ci": [
+          0.0482,
+          0.096
+        ],
+        "decision": "win"
+      },
+      "dS": {
+        "mean": -0.0671,
+        "ci": [
+          -0.1029,
+          -0.0318
+        ],
+        "decision": "loss"
+      },
+      "dTot": {
+        "mean": 0.0041,
+        "ci": [
+          -0.0414,
+          0.0525
+        ],
+        "decision": "tie"
+      },
+      "train_events": 19430
+    },
+    "ml_mc28_density_control": {
+      "n": 5346,
+      "fq_tll": 0.6768881923989899,
+      "etas_tll": 0.6746685418022528,
+      "dT": {
+        "mean": 0.0022,
+        "ci": [
+          -0.0244,
+          0.0308
+        ],
+        "decision": "tie"
+      },
+      "dS": {
+        "mean": -0.1476,
+        "ci": [
+          -0.1938,
+          -0.0997
+        ],
+        "decision": "loss"
+      },
+      "dTot": {
+        "mean": -0.1453,
+        "ci": [
+          -0.1977,
+          -0.0921
+        ],
+        "decision": "loss"
+      },
+      "train_events": 9167
+    },
+    "mw_uniform_mc26": {
+      "n": 8525,
+      "fq_tll": 1.037099661595768,
+      "etas_tll": 1.290328942591069,
+      "dT": {
+        "mean": -0.2532,
+        "ci": [
+          -0.2885,
+          -0.2205
+        ],
+        "decision": "loss"
+      },
+      "dS": {
+        "mean": -0.209,
+        "ci": [
+          -0.2584,
+          -0.1634
+        ],
+        "decision": "loss"
+      },
+      "dTot": {
+        "mean": -0.4622,
+        "ci": [
+          -0.5253,
+          -0.4008
+        ],
+        "decision": "loss"
+      },
+      "train_events": 10391
+    }
+  },
+  "interpretation": "California ML~Mw so ComCat is already Mw-equivalent; the production model beats ETAS on the unambiguously-Mw M>=3 subset (Mw-robust). The mc3.0-retrained model loses on the same events, showing the edge is data-efficiency (needs the dense low-mag record), not magnitude. Italy's Md-dominated catalog must be Mw-homogenized, which halves it above completeness; the win erodes as a density effect (density-matched ML mc2.8 control also only ties)."
+}

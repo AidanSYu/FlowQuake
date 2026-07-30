@@ -1,0 +1,93 @@
+{
+  "ckpt": "runs/n1_density/ckpt_best.pt",
+  "head": "ComCat_25",
+  "n_sims": 200,
+  "n_days": 3,
+  "summary": {
+    "N": {
+      "n_eval": 3,
+      "n_pass": 3,
+      "pass_rate": 1.0
+    },
+    "S": {
+      "n_eval": 2,
+      "n_pass": 2,
+      "pass_rate": 1.0
+    },
+    "M": {
+      "n_eval": 2,
+      "n_pass": 2,
+      "pass_rate": 1.0
+    }
+  },
+  "results": [
+    {
+      "day": 0,
+      "n_obs": 0,
+      "n_nonempty": 184,
+      "sim_mean": 2.945,
+      "n_obs_csep": 0,
+      "N": {
+        "quantile": [
+          1.0,
+          0.08
+        ]
+      }
+    },
+    {
+      "day": 60,
+      "n_obs": 7,
+      "n_nonempty": 191,
+      "sim_mean": 3.63,
+      "n_obs_csep": 7,
+      "N": {
+        "quantile": [
+          0.105,
+          0.935
+        ]
+      },
+      "S": {
+        "quantile": [
+          0.15706806282722513,
+          0.8429319371727748
+        ],
+        "observed": -4.471075040567624
+      },
+      "M": {
+        "quantile": [
+          0.7591623036649214,
+          0.24083769633507854
+        ],
+        "observed": 0.3814951069691533
+      }
+    },
+    {
+      "day": 120,
+      "n_obs": 2,
+      "n_nonempty": 193,
+      "sim_mean": 5.535,
+      "n_obs_csep": 2,
+      "N": {
+        "quantile": [
+          0.93,
+          0.22
+        ]
+      },
+      "S": {
+        "quantile": [
+          0.8911917098445595,
+          0.11917098445595854
+        ],
+        "observed": -6.4601027883745825
+      },
+      "M": {
+        "quantile": [
+          0.3005181347150259,
+          0.7150259067357513
+        ],
+        "observed": 0.11210371905634102
+      }
+    }
+  ],
+  "note": "spatial locations from full-history neural-ETAS head; counts/times/mags from production simulator"
+}

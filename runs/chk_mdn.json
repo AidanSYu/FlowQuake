@@ -1,0 +1,19 @@
+{
+  "dataset": "SCEDC_30",
+  "encoder": "ssm",
+  "spatial": "mdn",
+  "d_model": 96,
+  "n_layers": 3,
+  "d_state": 8,
+  "fm_steps": 20,
+  "steps": 400,
+  "seed": 0,
+  "n_params": 274864,
+  "train_time_s": 74.6,
+  "test_tll": 1.4191976941587552,
+  "test_sll": -11.51213698246308,
+  "test_mll": NaN,
+  "etas_tll": 1.8403,
+  "etas_sll": -7.6206,
+  "sll_minus_etas": -3.89153698246308
+}

@@ -1,0 +1,11 @@
+{
+  "window": [
+    "2020-01-17 00:00:00",
+    "2026-07-01 00:00:00"
+  ],
+  "n": 10187,
+  "tll": 1.0102738057926097,
+  "sll": -8.474594617572162,
+  "nll": 7.464320811779553,
+  "params_frozen_from": "ComCat_25 inversion (train<=2007, published with benchmark)"
+}

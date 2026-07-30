@@ -1,0 +1,7 @@
+{
+  "max_abs_sll_err": 1.7655796824556091e-09,
+  "mean_sll_ours": -8.689770387238818,
+  "mean_sll_ref": -8.689770387238829,
+  "n_test": 21889,
+  "match": true
+}

@@ -1,0 +1,14 @@
+{
+  "n": 10187,
+  "sll_neural": -8.407970428466797,
+  "sll_etas_frozen": -8.474594617570451,
+  "dS_mean": 0.0666,
+  "dS_ci": [
+    0.0552,
+    0.0784
+  ],
+  "dS_win_rate": 0.4785,
+  "decision": "win",
+  "ckpt": "runs/neural_etas/ComCat_25/head_full_s0.pt",
+  "feat": "ComCat_25_forward"
+}

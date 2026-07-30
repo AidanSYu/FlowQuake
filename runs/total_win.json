@@ -1,0 +1,94 @@
+{
+  "notes": [
+    "forward_2020_2026 is a retrospective out-of-time/pseudo-prospective replication, not a registered prospective forecast.",
+    "non-California/Italy multi-region totals are summarized in runs/stats_hardening.json with pairing coverage."
+  ],
+  "test_2007_2020": {
+    "n": 21889,
+    "n_temporal_scored": 21889,
+    "n_head_scored": 21889,
+    "n_etas_scored": 21889,
+    "coverage_vs_etas": 1.0,
+    "pairing_key": "time+duplicate_rank",
+    "fq_tll": 1.487639097333936,
+    "fq_sll": -8.629760984221207,
+    "fq_nll": 7.142121886887271,
+    "etas_tll": 1.4343428344882627,
+    "etas_sll": -8.689770387238829,
+    "etas_nll": 7.255427552750566,
+    "dT": {
+      "mean": 0.0533,
+      "ci": [
+        0.0403,
+        0.0675
+      ],
+      "decision": "win",
+      "win_rate": 0.608,
+      "p_boot": 0.0005
+    },
+    "dS": {
+      "mean": 0.06,
+      "ci": [
+        0.051,
+        0.0688
+      ],
+      "decision": "win",
+      "win_rate": 0.4972,
+      "p_boot": 0.0005
+    },
+    "dTot": {
+      "mean": 0.1133,
+      "ci": [
+        0.1006,
+        0.1268
+      ],
+      "decision": "win",
+      "win_rate": 0.5654,
+      "p_boot": 0.0005
+    }
+  },
+  "forward_2020_2026": {
+    "n": 10187,
+    "n_temporal_scored": 10187,
+    "n_head_scored": 10187,
+    "n_etas_scored": 10187,
+    "coverage_vs_etas": 1.0,
+    "pairing_key": "time+duplicate_rank",
+    "fq_tll": 1.0677136320078393,
+    "fq_sll": -8.40797007548935,
+    "fq_nll": 7.340256443481511,
+    "etas_tll": 1.0102738057926097,
+    "etas_sll": -8.474594617572162,
+    "etas_nll": 7.464320811779553,
+    "dT": {
+      "mean": 0.0574,
+      "ci": [
+        0.0376,
+        0.0819
+      ],
+      "decision": "win",
+      "win_rate": 0.6051,
+      "p_boot": 0.0005
+    },
+    "dS": {
+      "mean": 0.0666,
+      "ci": [
+        0.0553,
+        0.0784
+      ],
+      "decision": "win",
+      "win_rate": 0.4785,
+      "p_boot": 0.0005
+    },
+    "dTot": {
+      "mean": 0.1241,
+      "ci": [
+        0.1035,
+        0.1455
+      ],
+      "decision": "win",
+      "win_rate": 0.5516,
+      "p_boot": 0.0005
+    }
+  }
+}

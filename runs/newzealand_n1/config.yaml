@@ -1,0 +1,52 @@
+data:
+  catalog_path: reference/Datasets/NewZealand/NewZealand_catalog.csv
+  mcut: 3.5
+  aux_start: '1992-01-01'
+  train_start: '1994-01-01'
+  val_start: '2009-01-01'
+  test_start: '2011-01-01'
+  test_end: '2020-01-01'
+  n_near: 0
+  near_rmax_km: 30.0
+  adaptive_bg: false
+model:
+  d_model: 96
+  n_layers: 4
+  d_state: 32
+  n_heads: 6
+  expand: 2
+  chunk: 64
+  flow_hidden: 96
+  mix_hidden: 64
+  flow_layers: 3
+  loss_weights:
+  - 1.0
+  - 1.0
+  - 0.5
+  sigma_min:
+  - 0.02
+  - 0.01
+  - 0.05
+  dropout: 0.1
+  mag_dequant: 0.01
+  input_noise: 0.1
+  h_bottleneck: 0
+  h_noise: 0.3
+  spatial_density_feat: true
+  density_radius_km: 2.0
+  d_floor_km: 0.1
+train:
+  window: 2048
+  burn_in: 256
+  batch_size: 8
+  steps: 20000
+  lr: 0.0003
+  weight_decay: 0.03
+  warmup: 500
+  grad_clip: 1.0
+  seed: 1555
+  val_every: 250
+  val_events: 4096
+  val_ode_steps: 32
+  patience: 16
+  out_dir: runs/newzealand_n1
