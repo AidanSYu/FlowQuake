@@ -80,8 +80,11 @@ same 100 days as the production-head and ETAS runs):
 ```
 python -m flowquake.csep_forecast_head runs/n1_density/ckpt_best.pt \
     --head ComCat_25 --n-days 100 --n-sims 1000   # -> runs/n1_density/csep_head/
-python scripts/make_csep_h2h_figure.py                  # Fig. csep_headtohead
 ```
+The paired S-test against ETAS (`runs/csep_h2h_etas`) is then computed by
+`scripts/audit_readiness.py`'s `full_history_head_csep` check.
+(`scripts/make_csep_h2h_figure.py` plots the earlier production-head-vs-ETAS
+comparison from `runs/csep_h2h_{fq,etas}`, not this run.)
 
 ## 7. Out-of-time 2020-2026 window (CPU/network)
 ```
