@@ -3,20 +3,38 @@ name = "flowquake"
 version = "0.1.0"
 description = "Selective-SSM + flow-matching marked point process for the EarthquakeNPP benchmark"
 requires-python = ">=3.11"
+# This file is the single dependency manifest for the repository; the former
+# requirements.txt duplicated it and disagreed with it (see the etas TODO below).
 dependencies = [
     "torch>=2.4",
-    "numpy",
-    "pandas",
-    "scipy",
+    "numpy>=1.26",
+    "pandas>=2.0",
+    "scipy>=1.11",
     "pyyaml",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest"]
-figures = ["matplotlib", "scipy"]
-# CSEP consistency tests (flowquake.csep_forecast) + the ETAS head-to-head
-# (flowquake.etas_csep). NOTE: etas is not on PyPI — install from GitHub.
-csep = ["pycsep", "scipy"]
+figures = ["matplotlib", "scipy>=1.11"]
+# CSEP consistency tests (flowquake.csep_forecast, flowquake.csep_forecast_head)
+# + the ETAS head-to-head (flowquake.etas_csep).
+csep = ["pycsep==0.6.3", "scipy>=1.11"]
+# Re-inverting ETAS baselines (scripts/run_etas_regions.py, which drives the
+# benchmark's own reference/Experiments/ETAS/invert_etas.py). Not on PyPI.
+#
+# TODO [USER, blocks release]: name the etas implementation that actually
+# produced the baseline numbers in MANUSCRIPT.md, then pin it here and cite it
+# in the manuscript's methods.
+#   Two candidates were recorded in this repo and they are different code:
+#     * git+https://github.com/lmizrahi/etas.git   -- upstream Mizrahi et al.,
+#       the version cited in MANUSCRIPT.md's references; pinned below.
+#     * git+https://github.com/ss15859/etas        -- the EarthquakeNPP author's
+#       fork, which the deleted requirements.txt carried commented out.
+#   Which one was installed when the region inversions were run cannot be
+#   determined from this repository. The incumbent baseline is what every
+#   reported gain is measured against, so this must be resolved from the
+#   training environment (e.g. `pip show etas` / the env's pip freeze) before
+#   submission, not guessed. Add a commit-or-tag pin once known.
 etas = ["etas @ git+https://github.com/lmizrahi/etas.git", "seismostats==1.0.1"]
 
 [build-system]
