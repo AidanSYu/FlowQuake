@@ -60,14 +60,19 @@ states the same boundary and is the file to quote from.
 
 `runs/` is committed: 226 files, 136 summary JSONs and 90 run configs. The
 evidence trail behind essentially every reported number is now in the
-repository, and `results/CLAIMS.md` maps each claim to its key. Of 137 traced
-claims, 121 match the artifact exactly or to rounding, 2 are ambiguous between
-two committed artifacts, 8 are contradicted by their artifact, and 12 have no
-committed backing at all.
+repository, and `results/CLAIMS.md` maps each claim to its key. Across 142 traced
+claim rows (134 distinct claims), 114 match the artifact exactly or to rounding,
+2 are ambiguous between two committed artifacts, 8 distinct claims are
+contradicted by their artifact, and 12 distinct claims have no committed backing
+at all. Note that "matches to rounding" is the larger half of that 114: 63 rows
+match at the artifact's own precision, 51 round to the printed value. Both are
+sound, but only the first is exact.
 
 **Aggregation is clean.** All 30 values in `runs/fullsuite_summary.json` (3-seed
 mean and sample sd of `tll`/`sll`/`nll` for five datasets) recompute from the 15
-per-seed `eval_test.json` files to a difference of exactly zero. The three
+per-seed `eval_test.json` files: 29 to a difference of exactly zero, and
+`SaltonSea_10.sll_sd` to 8.7e-19 — one unit in the last place, i.e. float
+summation-order noise, not a discrepancy in the stored value. The three
 paired CSEP statistics were re-derived from raw per-day S-test quantiles rather
 than trusted as stored summaries: head vs ETAS on 83 shared days is 77 passes
 each with 10 discordant days split 5–5 and McNemar exact p = 1.0000; head vs the
@@ -76,8 +81,10 @@ CSEP runs' `results[].day` lists are element-for-element identical, so the
 "identical 100 forecast days" claim holds literally.
 
 **What is still external.** `reference/` is a clone of the EarthquakeNPP
-benchmark and is not committed; nothing trains or evaluates without it. All 100
-committed run configs have `catalog_path` under it. Required and *not* listed in
+benchmark and is not committed; nothing trains or evaluates without it. All 90
+committed run configs under `runs/` have `catalog_path` under it, as do all 33 in
+`configs/` — 123 tracked YAMLs, not one of which resolves without
+`reference/`. Required and *not* listed in
 `README.md:132-148`: `Datasets/NewZealand/`, `Datasets/Italy_Mw/` plus
 `Italy_mw_raw/`, `Datasets/ComCat_forward/`, `Datasets/ComCat_extended/`,
 `Experiments/ETAS/pycsep_tests_parallel.py`, and

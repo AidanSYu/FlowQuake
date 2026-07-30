@@ -24,10 +24,32 @@ the stated value. `AMBIGUOUS` — two committed artifacts could back the stated
 value and they disagree. `MISMATCH` — the artifact contradicts the manuscript.
 `NO ARTIFACT` — nothing committed backs the number.
 
-Coverage: 137 claims across five families. 96 `MATCH`, 25 `ROUNDING`,
-2 `AMBIGUOUS`, 8 `MISMATCH`, 12 `NO ARTIFACT` (see the next two sections;
-several `MISMATCH`/`NO ARTIFACT` rows are cited from more than one family and
-are listed once here, then again in their family table).
+Coverage: **142 claim rows** across the five family tables below, counted by
+status exactly as written:
+
+| status | rows |
+|---|---|
+| `MATCH` | 63 |
+| `ROUNDING` | 51 |
+| `NO ARTIFACT` | 13 |
+| `MISMATCH` | 11 |
+| `AMBIGUOUS` | 2 |
+| `MATCH` with a `NO ARTIFACT` caveat (T23 only) | 1 |
+| MISMATCH-adjacent wording (X31 only) | 1 |
+| **total** | **142** |
+
+Those 142 rows cover **134 distinct claims**: several `MISMATCH`/`NO ARTIFACT`
+findings are cited from more than one family, so the 11 `MISMATCH` rows are
+**8 distinct** contradictions (M1–M8), and the 13 `NO ARTIFACT` rows plus T23
+cover **12 distinct** unbacked claims (N1–N12) — S28 alone carries three of them
+(N6, N7, N8) and T23 carries N11. The two READ FIRST sections below enumerate
+those 8 + 12 + 2 findings once each, and every one of them is cross-referenced
+from at least one family table.
+
+`ROUNDING` is the second-largest bucket and is not a weaker form of `MATCH`
+being hidden: it means the artifact carries more digits than the manuscript
+prints and rounds to the printed value exactly. The distinction is recorded per
+row so a reader can re-derive either.
 
 ---
 
@@ -45,7 +67,7 @@ inverts a headline result; all of them are wrong as written.
 | M5 | `MANUSCRIPT.md:659` (§4.5 density table) | Iran native `dT` 95% CI **[−0.347, −0.205]** | **[−0.36975851467862897, −0.173887497485534]** (`multiregion_master.json`); [−0.36925978106898144, −0.17691360058207323] (`prospective.json`). Substantially wider than stated. Point estimate −0.276 is exact | `multiregion_master.json` → `Iran.native.paired.dT_ci` |
 | M6 | `MANUSCRIPT.md:328-331` | the time-binned analysis "shows the California and Chile temporal wins are individually significant in every era of their test windows" | `prospective.json` stores **no per-window CI or p-value of any kind**, so no era-level significance exists anywhere. Chile has only 10 of 19 180-day windows positive (`bins_dT_positive_frac` 0.5263), with negatives to −0.0557; California is 23 of 27. The claim is contradicted by the artifact it cites | `prospective.json` → `Chile.native.series[].dT`, `.bins_dT_positive_frac` |
 | M7 | this file's own former "Open items" (`Figures are gitignored`) | figures not tracked | **12 figures are tracked** (`figures/*.png`, committed in 9507356); `.gitignore` says "Paper figures are tracked". Corrected in this revision | `git ls-files figures/` |
-| M8 | `README.md:132-148` (expected `reference/` tree) | the tree lists everything a stranger must supply | incomplete for the committed runs. Also required: `Datasets/NewZealand/NewZealand_catalog.csv` (`runs/newzealand_n1{,_s1553,_s1554}`), `Datasets/Italy_Mw/` + `Italy_mw_raw/` (`runs/italy_mw_n1`, the §4.5 Mw control), `Datasets/ComCat_forward/` (the §4.1 out-of-time claim), `Datasets/ComCat_extended/`, `Experiments/ETAS/pycsep_tests_parallel.py`, and `output_data_<Cfg>/parameters_0.json` (required by `flowquake/etas_csep.py`). The "nothing runs without it" statement itself is accurate — all 100 committed run configs have `catalog_path` under `reference/` | `runs/*/config.yaml` → `data.catalog_path` |
+| M8 | `README.md:132-148` (expected `reference/` tree) | the tree lists everything a stranger must supply | incomplete for the committed runs. Also required: `Datasets/NewZealand/NewZealand_catalog.csv` (`runs/newzealand_n1{,_s1553,_s1554}`), `Datasets/Italy_Mw/` + `Italy_mw_raw/` (`runs/italy_mw_n1`, the §4.5 Mw control), `Datasets/ComCat_forward/` (the §4.1 out-of-time claim), `Datasets/ComCat_extended/`, `Experiments/ETAS/pycsep_tests_parallel.py`, and `output_data_<Cfg>/parameters_0.json` (required by `flowquake/etas_csep.py`). The "nothing runs without it" statement itself is accurate — all **90** committed run configs under `runs/` have `catalog_path` under `reference/`, as do all 33 in `configs/` (123 tracked YAMLs, 123 `catalog_path` values, every one under `reference/`) | `runs/*/config.yaml` → `data.catalog_path` |
 
 ### Two AMBIGUOUS rows
 
@@ -87,8 +109,10 @@ The 3-seed means are aggregated into `runs/fullsuite_summary.json`.
 
 **Aggregation verified.** All 30 values in `fullsuite_summary.json` (mean and
 sample sd, ddof=1, of `tll`/`sll`/`nll` for five datasets) were recomputed from
-the 15 committed per-seed `eval_test.json` files. Every one reproduces to full
-float precision — difference exactly 0.0. `n_events` is identical across seeds
+the 15 committed per-seed `eval_test.json` files. 29 of the 30 reproduce with a
+difference of exactly 0.0; the thirtieth (`SaltonSea_10.sll_sd`) differs by
+8.7e-19, one unit in the last place, which is summation-order float noise and
+not a discrepancy in the stored value. `n_events` is identical across seeds
 within each dataset (21889 / 24080 / 4400 / 4104 / 13062). Seeds are genuinely
 distinct (1553/1554/1555 per each run's `config.yaml`).
 
@@ -124,7 +148,7 @@ Artifact for every row: `runs/fullsuite_summary.json`. Δ column source:
 
 | # | claim (location) | stated | artifact value | artifact → key | status |
 |---|---|---|---|---|---|
-| T21 | ComCat paired per-event temporal gain and win rate (`:304`) | +0.052 ± 0.0025, 61% improved | 3-seed mean gain 0.0524896796249419, mean stderr 0.0024462216119013197, mean win rate 0.6103522317145598 (per seed 0.05329626 / 0.05249777 / 0.05167500) | `n1_density`, `n1_s1553`, `n1_s1554` `eval_test.json` → `paired_vs_ETAS.temporal.{mean_gain,stderr,win_rate}` | MATCH |
+| T21 | ComCat paired per-event temporal gain and win rate (`:304`) | +0.052 ± 0.0025, 61% improved | 3-seed mean gain 0.05248967962494191, mean stderr 0.0024462216119013197, mean win rate 0.6103522317145598 (per seed 0.05329626 / 0.05249777 / 0.05167500) | `n1_density`, `n1_s1553`, `n1_s1554` `eval_test.json` → `paired_vs_ETAS.temporal.{mean_gain,stderr,win_rate}` | MATCH |
 | T22 | block bootstrap significant on 4 of 5; SanJac positive, interval touches zero (`:305-307`, `:315-317`, abstract `:30-32`) | 4 of 5; SanJac tie | ComCat win, `ci` [0.03968943039040959, 0.06798247572732614]; WHITE_06 win [0.030456473572587874, 0.06461784566084337]; SanJac_10 **tie**, mean 0.029182325735982863, `ci` [−0.005686476386749143, 0.07592596149130082]; SaltonSea_10 win [0.06967317591468951, 0.144360564134678]; SCEDC_20 win [0.06028236923397232, 0.09728371647260345] | `replacement_readiness.json` → `checks[california_block_bootstrap_temporal].evidence.<cat>.{mean,ci,decision}` | MATCH (wording note below) |
 | T23 | block length 50 events (`:276`) | 50 | `flowquake/stats.py:45` default `mean_block: int = 50`; no `scripts/` call site overrides it | code only — see **N11** | MATCH / NO ARTIFACT |
 | T24 | temporal gain positive in 85% of 180-day windows (`:328-331`) | 85% | 0.8518518518518519 (23 of 27 windows) | `prospective.json` → `California.native.bins_dT_positive_frac` | MATCH |
@@ -177,7 +201,7 @@ Only `paired_vs_ETAS.temporal` in that file is safe to quote — and it is corre
 |---|---|---|---|---|---|
 | S1 | California total-likelihood win (`:575`, abstract `:51`) | +0.113 | 0.1133 | `stats_hardening.json` → `total_with_head_family.California.dTot_mean` | ROUNDING |
 | S2 | Italy total-likelihood win | +0.210 | 0.2095 | `...Italy.dTot_mean` | ROUNDING |
-| S3 | Japan total-likelihood win (`:575-576`, `:581`) | +0.039 | 0.039, `ci` [0.0163, 0.062], `p_holm` 0.0045 | `...Japan.dTot_mean` | MATCH |
+| S3 | Japan total-likelihood win (`:575-576`, `:581`) | +0.039 | 0.039, `dTot_ci` [0.0163, 0.062], `p_holm` 0.0045, `p_boot` 0.0015 | `...Japan.dTot_mean`, `.dTot_ci` | MATCH |
 | S4 | Chile total-likelihood win (`:576`) | +0.061 | 0.0608 | `...Chile.dTot_mean` | ROUNDING |
 | S5 | Greece total-likelihood win, few-shot temporal (`:576`) | +0.076 | 0.0756, `temporal_variant` `"fewshot"` | `...Greece.dTot_mean` | ROUNDING |
 | S6 | Iran total-likelihood win, few-shot temporal (`:576`) | +0.084 | 0.0844, `temporal_variant` `"fewshot"` | `...Iran.dTot_mean` | ROUNDING |
@@ -206,6 +230,7 @@ Only `paired_vs_ETAS.temporal` in that file is safe to quote — and it is corre
 | S29 | zero-shot spatial-head transfer, 7 of 7 within-regime (`:603-604`) | 7 of 7 (win or tie); CA→Italy +0.073, Japan→Chile +0.095, Chile→Japan +0.016 | 7 `within_regime` rows: 6 `"win"` + 1 `"tie"` (Japan→Greece); ComCat→Italy 0.0726, Japan→Chile 0.0949, Chile→Japan 0.016; `cross_completeness` 0 of 4 | `neural_etas/spatial_transfer_summary.json` → `within_regime[].zero_shot_dS`, `.zero_shot` | ROUNDING |
 | S30 | transfer ablation: background-only "still wins"; Japan→Greece modulation converts a non-win into a win (`:606-610`) | as stated | Japan→Greece `bg_only` −0.015 (a loss); full head 0.0282, `decision` `"tie"`. Modulation increments 0.0101–0.0432 do match "+0.01 to +0.04" | `spatial_transfer_summary.json` → `mlp_decomposition_japan_source.Greece`; `within_regime[Japan→Greece].zero_shot` | **MISMATCH (M3)** |
 | S31 | default initialization starts +0.002 to +0.004 nats/event above ETAS (`:539`) | +0.002…+0.004 | not committed | — | **NO ARTIFACT (N9)** |
+| S32 | optional full flETAS (EM, free background) spatial baseline (`:970-971`) | listed as not yet run | not run; nothing committed. The baseline that *is* committed is the SGD refit control, `dS_mean` 0.0564, `dS_ci` [0.0477, 0.0654], `decision` `"win"` (row S22). The manuscript's own open-items list already flags this, so no sentence overclaims it | `neural_etas/ComCat_25/summary_refit_globals_s0.json` (the committed substitute) | **NO ARTIFACT (N12)** |
 
 **What the head learned** (illustrative, backed):
 `neural_etas/ComCat_25/summary_full_s0.json` → `bg_weights[unif,kde...]`
@@ -302,7 +327,7 @@ stated cause. The author's own `note` field in `csep_h2h_etas` acknowledges the
 | X2 | frozen out-of-time `dT`, CI, fraction improved (`:348-350`) | +0.057, [+0.038, +0.082], 60.5% | 0.0574, [0.0376, 0.0819], 0.6051 | `forward_2020_2026.dT.{mean,ci,win_rate}` | ROUNDING |
 | X3 | frozen §4.4 head forward `dS` and event-level win rate (`:352-354`) | +0.067 [+0.055, +0.078], 47.8% | 0.0666, [0.0553, 0.0784], 0.4785 (`per_event_forward_full.json`: 0.0666, [0.0552, 0.0784], 0.4785) | `forward_2020_2026.dS.{mean,ci,win_rate}` | ROUNDING |
 | X4 | forward total gain (`:353`, `:580`) | +0.124 [+0.104, +0.146] | 0.1241, [0.1035, 0.1455] | `forward_2020_2026.dTot.{mean,ci}` | ROUNDING |
-| X5 | in-window ComCat total the forward window replicates (`:578-579`) | 7.142 vs 7.255, +0.113 | `fq_nll` 7.142121886887271, `etas_nll` 7.255427552750566, `dTot.mean` 0.1133 | `test_2007_2020.*` | MATCH |
+| X5 | in-window ComCat total the forward window replicates (`:578-579`) | 7.142 vs 7.255, +0.113 | `fq_nll` 7.142121886887271, `etas_nll` 7.255427552750566, `dTot.mean` 0.1133, `dTot.ci` [0.1006, 0.1268] | `test_2007_2020.*` | ROUNDING (same claim as S9) |
 | X6 | refit improves ETAS's own forward NLL marginally (`:364-365`) | 0.016 (7.464→7.448); `dT` +0.005, `dS` +0.011 | 0.015875; 0.005210; 0.010664 | `forward_etas_ComCat_25_refit2020/summary.json` + `forward_etas/summary.json` → `nll`/`tll`/`sll` | MATCH |
 | X7 | vs the fairness-control refit ETAS the total win narrows slightly (`:366-367`) | +0.108 (temporal +0.052, spatial +0.056) | 7.340256443481511 − 7.448446148714125 = 0.108190; `tll` 1.0677136320078393 − 1.0154842540955407 = 0.052229; `sll` −8.40797007548935 − (−8.463930402809666) = 0.055960 | `total_win.json` forward `fq_nll`/`fq_tll`/`fq_sll` minus refit `nll`/`tll`/`sll`. **No artifact stores +0.108 or a CI for it** | MATCH (derived) |
 | X8 | refit ETAS parameter values, branching ratio, EM iterations (`:362-364`) | `a` 1.556→1.603, log10μ −6.333→−6.389, ρ 0.557→0.571, branching 0.968, 12 iterations | not committed | — | **NO ARTIFACT (N2, N3)** |
@@ -324,7 +349,7 @@ stated cause. The author's own `note` field in `csep_h2h_etas` acknowledges the
 | X24 | transfer fails across completeness regimes (`:610-611`) | 0 of 4 | 4 rows, `zero_shot` = `"loss"` in all four (−0.0672, −0.2292, −0.1464, −0.328) | `cross_completeness[].zero_shot`, `.zero_shot_dS` | MATCH |
 | X25 | neural modulation adds this much on a background-only transferred head (`:607-609`) | +0.01 to +0.04 | `mlp_adds` Chile 0.0308, Greece 0.0432, Iran 0.0101 — actual range 0.0101–0.0432, upper end slightly above the stated +0.04 | `mlp_decomposition_japan_source` | ROUNDING |
 | X26 | for Japan→Greece the modulation converts a non-win into a win (`:609-610`) | non-win → win | `dS` 0.0282, `ci` [−0.0121, 0.0676], `decision` `"tie"`; `bg_only` −0.015 | `transfer_from_Japan_25.json` → `targets.Greece_25.zero_shot`; `spatial_transfer_summary.json` | **MISMATCH (M3)** |
-| X27 | memorization ablation train/test NLL and gap at `ckpt_last` for h = 0, 4, 16, 64 (`:474-479`) | h0 7.28/7.62/0.34; h4 4.14/19.65/15.50; h16 4.18/18.73/14.55; h64 4.27/18.33/14.06 | h0 7.281167030334473 / 7.621030569076538 / 0.33986353874206543; h4 4.143446922302246 / 19.64580488204956 / 15.502357959747314; h16 4.182443857192993 / 18.731383323669434 / 14.54893946647644; h64 4.272901058197021 / 18.33090305328369 / 14.05800199508667 | `ablation_h/memorization_figure.json` → rows with `ckpt == "last"` | MATCH |
+| X27 | memorization ablation train/test NLL and gap at `ckpt_last` for h = 0, 4, 16, 64 (`:474-479`) | h0 7.28/7.62/0.34; h4 4.14/19.65/15.50; h16 4.18/18.73/14.55; h64 4.27/18.33/14.06 | h0 7.281167030334473 / 7.621030569076538 / 0.33986353874206543; h4 4.143446922302246 / 19.64580488204956 / 15.502357959747314; h16 4.182443857192993 / 18.731383323669434 / 14.54893946647644; h64 4.2729010581970215 / 18.33090305328369 / 14.05800199508667 | `ablation_h/memorization_figure.json` → rows with `ckpt == "last"` | MATCH |
 | X28 | early stopping does not rescue h>0 (`:486-489`) | best at step 250, gap 0.21–0.27, NLL 8.0–8.2 (worse than h=0's 7.62); held-out then diverges to ~19–20 | `best` rows for h=4/16/64 all at step 250; `gap_nll` 0.20925915241241455 / 0.2444249391555786 / 0.27436113357543945; `test.nll` 8.21579110622406 / 8.124865412712097 / 8.063421964645386 (span 8.06–8.22, upper end above the stated 8.2); `last` `test.nll` 19.646 / 18.731 / 18.331 (span 18.3–19.6, not 19–20) | `memorization_figure.json` → rows with `ckpt == "best"` | ROUNDING |
 | X29 | per-region head spatial gains, 3-seed means (`:569-570`) | +0.060, +0.137, +0.053, +0.029, +0.088, +0.146 | recomputed 0.060200, 0.137333, 0.052633, 0.029367, 0.087633, 0.146233; every seed's `dS_ci` strictly positive | `neural_etas/<region>/summary_full_s{0,1,2}.json` → `dS_mean` | MATCH |
 | X30 | per-seed spread of those six (`:570-571`) | ≤0.003 | ranges 0.0008, 0.0019, 0.0003, 0.0070, 0.0056, 0.0045 | as above | **MISMATCH (M1)** |
