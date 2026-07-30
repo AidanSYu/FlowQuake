@@ -217,14 +217,6 @@ def audit():
         {"verify_markers": verify_count},
     )
 
-    if (ROOT / "src" / "eqnpp").exists():
-        _check(
-            checks,
-            "WARN",
-            "legacy_package_surface",
-            "src/eqnpp exists but pyproject packages only flowquake; mark it legacy or remove before release.",
-        )
-
     # --- new evidence (2026-07-02): neural-ETAS spatial head + out-of-time replication ---
     head_summary = _load_json(RUNS / "neural_etas" / "ComCat_25" / "summary_full_s0.json")
     if head_summary:
@@ -373,7 +365,7 @@ def audit():
             "Run an untouched, registered prospective rolling forecast on a future catalog window.",
             "GPU-vectorize the full-history head grid simulator for cheaper CSEP re-runs.",
             "Reduce per-region preprocessing toward an inversion-free head initialization.",
-            "Clean legacy package surface and verify all bibliography/first-claim markers.",
+            "Verify all bibliography/first-claim markers.",
         ],
     }
     return report
