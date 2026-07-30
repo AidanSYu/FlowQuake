@@ -1,17 +1,36 @@
+# Caches and environments
 __pycache__/
 *.pyc
 .pytest_cache/
-reference/
-*.egg-info/
 .venv/
-.pytest_cache/
+*.egg-info/
 _autostpp_tmp/
+
+# The EarthquakeNPP clone: external catalogs + ETAS baseline outputs, fetched
+# separately (README, "Setup and data"). Never committed from here.
+reference/
 
 # Run artifacts: keep evaluation metrics and configs, exclude regenerable bulk
 # (checkpoints, trigger-feature caches, per-event and CSEP forecast grids).
+# The committed summary JSONs under runs/ are the evidence trail behind
+# MANUSCRIPT.md's numbers, mapped in results/CLAIMS.md.
 runs/**
 !runs/**/
 !runs/**/*.json
 !runs/**/*.yaml
 
 # Paper figures are tracked; regenerate with scripts/make_figures.py
+
+# Belt-and-braces for bulk landing outside runs/. Inside runs/ the whitelist
+# above already covers these.
+*.pt
+*.ckpt
+*.npz
+*.npy
+*.log
+*.zip
+*.tar.gz
+*.csv.gz
+CSEP_day_*.csv
+per_event*.csv
+*_per_event.csv

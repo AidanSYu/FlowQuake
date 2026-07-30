@@ -209,6 +209,10 @@ canonical-vs-N1 spatial comparison in §4.4.
   streaming state, so test events condition on the *entire* history.
 - The flow heads are zero-initialized (identity-ish velocity), which makes
   early FM training stable.
+- `results/CLAIMS.md` traces each reported claim to the config, run directory,
+  script and JSON key behind it. The values there are `PENDING` until the run
+  artifacts are committed; `.gitignore` admits the summary JSONs and keeps
+  checkpoints, precomputed features and simulated CSEP catalogs out.
 
 ## License and data
 
