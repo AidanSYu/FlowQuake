@@ -2,23 +2,30 @@
 # Gate for shared-GPU coordination: exit 0 only when it is safe to launch
 # training. Never touches other processes.
 #
-# Phase 1 (up to 4 h): poll once/min for the sentinel flag dropped by the
-#   benchmark session when the GPU is fully free.
+# Phase 1 (up to 4 h): poll once/min for a sentinel flag file dropped by
+#   whatever other job is holding the GPU. Set GPU_FREE_FLAG to that file's
+#   path; if it is unset, Phase 1 is skipped and only the nvidia-smi gate runs.
 # Phase 2 (fallback if the flag never appears): poll nvidia-smi once/min and
 #   require memory.used < 2000 MiB for 5 CONSECUTIVE checks (usage dips
-#   briefly between benchmark jobs, so one low reading is not enough).
+#   briefly between jobs, so one low reading is not enough).
+#
+# This is a local convenience for sharing one GPU between jobs; it is not part
+# of the reproduction pipeline in REPRODUCE.md.
 
-FLAG="/c/Code/AI Research/projects/25-lodestone-verifier-prior/bench/GPU_FREE.flag"
+FLAG="${GPU_FREE_FLAG:-}"
 
-for i in $(seq 1 240); do
-  if [ -f "$FLAG" ]; then
-    echo "FLAG_FOUND after ~${i} min"
-    exit 0
-  fi
-  sleep 60
-done
-
-echo "FLAG_TIMEOUT after 4 h; falling back to nvidia-smi gating"
+if [ -n "$FLAG" ]; then
+  for i in $(seq 1 240); do
+    if [ -f "$FLAG" ]; then
+      echo "FLAG_FOUND after ~${i} min"
+      exit 0
+    fi
+    sleep 60
+  done
+  echo "FLAG_TIMEOUT after 4 h; falling back to nvidia-smi gating"
+else
+  echo "GPU_FREE_FLAG unset; using nvidia-smi gating only"
+fi
 consec=0
 while true; do
   if [ -f "$FLAG" ]; then
