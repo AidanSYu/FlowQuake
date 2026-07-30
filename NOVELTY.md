@@ -22,8 +22,8 @@ Do **NOT** claim "first transfer learning for earthquake forecasting" unqualifie
 - **SafeNet** — Zhang et al. (2025), *Scientific Reports*, 10.1038/s41598-025-93877-7.
   Cross-region few-shot transfer forecasting that beats ETAS — BUT a 4°×4° gridded
   **annual-max-magnitude classifier** scored on F1/recall; no likelihood, no intensity,
-  no point process. → different model class. *(This is the one that can sink us if we
-  overclaim.)*
+  no point process. → different model class. *(The closest prior claim on the transfer
+  axis; the point-process boundary against it must be stated precisely.)*
 - **Zhan et al. (2026) NMRP** — *Earth's Future*, 10.1029/2025EF007342 (Apr 2026).
   Neural modulated renewal process; "matches and in some cases surpasses ETAS" temporally
   on EarthquakeNPP — BUT no spatial head, no transfer, no multi-seed significance, CA only.
@@ -41,11 +41,12 @@ Do **NOT** claim "first transfer learning for earthquake forecasting" unqualifie
   (2024) — corroborating context (multi-region≠transfer; detection≠forecasting; generic
   TSFM energy regression ≠ point process).
 
-## Venue (novelty supports the high route)
-- **Reach / justified:** Nature Communications or Nature Geoscience (transfer/foundation-model
-  headline); Science Advances alternative.
-- **Realistic high:** GRL.
-- **Safe fallback:** JGR Solid Earth, Seismica.
+## Venue
+Candidate venues, none decided: *GRL* and *JGR Solid Earth* are the natural fits for
+the seismological audience; *Seismica* is the open-access alternative. The
+transfer/foundation-model framing would also be in scope for a broader journal, but
+that is a judgement about breadth of interest, not something the novelty assessment
+above establishes.
 
 ## Before claiming "first" at submission
 1. Fresh **May–June 2026 EarthArXiv/arXiv sweep** (fast field; RECAST team active on transfer).

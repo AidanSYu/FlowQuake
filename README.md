@@ -85,7 +85,7 @@ and the per-dataset `configs/{WHITE_06,SanJac_10,SaltonSea_10,SCEDC_20}_n1*.yaml
 `reference/` is a clone of the EarthquakeNPP repo (data + ETAS baseline
 outputs); it is not part of this package.
 
-## Internal chain (from SEED)
+## Claim ladder
 
 1. **Temporal kill**: beat ETAS tll / pass temporal N-test. *(Known to
    underdeliver per benchmark authors — necessary, not sufficient.)*
