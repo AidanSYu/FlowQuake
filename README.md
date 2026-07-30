@@ -5,10 +5,12 @@ point process**, evaluated on the [EarthquakeNPP](https://github.com/ss15859/Ear
 benchmark against the operational ETAS model. The strongest current claim is a
 multi-seed temporal log-likelihood win, transferable deployment evidence, and a
 full-history neural-ETAS spatial head that flips total likelihood against
-region-fitted ETAS in the six tested regions. This is an ETAS upgrade path, not
-yet an operational replacement: CSEP must still be re-run with the upgraded
-spatial head and a future prospective forecast must be registered before making
-deployment claims. See `SEED.md` for the original research bet.
+region-fitted ETAS in the six tested regions. CSEP consistency has been re-run
+with that upgraded head at a matched simulation budget and is statistically
+indistinguishable from ETAS on all three tests (§4.2 of `MANUSCRIPT.md`). This
+is still an ETAS upgrade path rather than an operational replacement: the head
+is initialized from each region's ETAS inversion, and a future prospective
+forecast must be registered before making deployment claims.
 
 The two reasons neural point processes have lost to ETAS — fixed-window
 encoders (DeepSTPP sees 20 events) and hand-crafted Omori/Gutenberg-Richter
@@ -89,9 +91,10 @@ outputs); it is not part of this package.
    underdeliver per benchmark authors — necessary, not sufficient.)*
 2. **Spatial/total likelihood win**: the full-history neural-ETAS head closes
    the ETAS spatial gap and flips total likelihood on the reported regions.
-3. **Operational replacement gate**: re-run matched ETAS-vs-FlowQuake CSEP with
-   the full-history head, validate the ETAS-refit forward control, and register
-   a genuinely future rolling forecast.
+3. **Operational replacement gate**: matched ETAS-vs-FlowQuake CSEP with the
+   full-history head is done (N 95/100, S 79/85, M 90/92; S-test McNemar exact
+   p = 1.00 vs ETAS) and so is the ETAS-refit forward control. What remains is
+   registering a genuinely future rolling forecast.
 
 ## Notes
 

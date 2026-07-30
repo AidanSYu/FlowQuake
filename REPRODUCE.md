@@ -74,6 +74,15 @@ python scripts/make_modulation_figure.py                # what the head learned
 # other regions: python scripts/precompute_trigger_features.py Italy_25   (etc.)
 ```
 
+Then re-run CSEP with that head, so the likelihood win and the consistency
+result are measured on the same model (§4.2; matched 10^3-catalog budget on the
+same 100 days as the production-head and ETAS runs):
+```
+python -m flowquake.csep_forecast_head runs/n1_density/ckpt_best.pt \
+    --head ComCat_25 --n-days 100 --n-sims 1000   # -> runs/n1_density/csep_head/
+python scripts/make_csep_h2h_figure.py                  # Fig. csep_headtohead
+```
+
 ## 7. Out-of-time 2020-2026 window (CPU/network)
 ```
 python scripts/build_comcat_forward.py                  # exact benchmark recipe, USGS fetch
@@ -102,10 +111,12 @@ python scripts/stats_hardening.py    # Holm-Bonferroni family + TOST equivalence
 ```
 python scripts/audit_readiness.py   # -> runs/replacement_readiness.json
 ```
-This is the gate for public wording. It should pass the research-preview checks
-but currently blocks any blanket "operational replacement" claim until CSEP is
-re-run with the upgraded spatial head and a future prospective forecast is
-registered/evaluated.
+This is the gate for public wording. With the run artifacts present it should
+reach `RESEARCH_PREVIEW_READY`: the research-preview checks, the full-head CSEP
+check and the ETAS-refit forward control all pass. It does not certify an
+operational system — the head is still initialised on the target region's ETAS
+inversion plus a causal KDE background, and no prospective forecast has been
+registered.
 
 ## Key results (significance-tested, paired on reported event sets)
 - Temporal, native FlowQuake vs region-fitted ETAS (dT, nats/event): WIN on
@@ -144,5 +155,8 @@ The temporal advantage is density-dependent (shrinks as mc rises).
   but it is not zero target-catalog preprocessing.
 - The production kernel-mixture spatial head still trails ETAS; the spatial/total
   win uses the full-history neural-ETAS head initialized from each region's ETAS
-  inversion. CSEP consistency has not yet been re-run with that upgraded head.
+  inversion. CSEP consistency has been re-run with that upgraded head through the
+  same pyCSEP path (100 identical forecast days, matched 10^3-catalog budget):
+  N 95/100, S 79/85, M 90/92, S-test statistically indistinguishable from ETAS
+  (McNemar exact p = 1.00). See MANUSCRIPT.md §4.2.
 - RunPod / external compute not required; all runs above are local.

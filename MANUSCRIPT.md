@@ -583,12 +583,13 @@ interpretability margin used for equivalence checks. Four-region composite
 totals outside California/Italy are computed on the intersection of
 FlowQuake-temporal, neural-head and ETAS-scored events (coverage:
 Japan 96.3%, Chile 97.1%, Greece 92.0%, Iran 89.0%), while the head-only dS
-comparisons use the full ETAS-scored test sets. Two qualifications keep this
+comparisons use the full ETAS-scored test sets. One qualification keeps this
 honest: the head is initialized from each region's ETAS inversion, so the
 composite *upgrades* an existing ETAS deployment rather than removing the
-inversion; and the CSEP consistency results of §4.2 evaluate the production
-kernel-mixture head — re-running CSEP with this head requires a full-history
-simulator and is future work.
+inversion. CSEP consistency for this head is not an open item — §4.2 reports it
+run through the same pyCSEP path, on the same 100 forecast days, at a matched
+10³-catalog budget (N 95/100, S 79/85, M 90/92; S-test statistically
+indistinguishable from ETAS, McNemar exact p = 1.00).
 
 **The spatial head itself transfers across regimes — within a completeness
 regime (`scripts/transfer_neural_etas.py`).** The head's learned components are
@@ -877,9 +878,8 @@ inversion (which the head upgrades) remain required. Future work: authoritative
 low-mc catalogs in further regimes to test whether the dense-catalog win extends
 (the prohibitive cost of inverting ETAS on very large low-mc catalogs is the
 current limit); cross-completeness spatial transfer (currently the one transfer
-boundary); re-running the CSEP consistency suite with the upgraded spatial head;
-and operational deployment of the pre-trained model in newly-instrumented
-regions.
+boundary); and operational deployment of the pre-trained model in
+newly-instrumented regions.
 
 ## References
 
@@ -961,12 +961,15 @@ package README) during the pre-submission bibliography pass.*
   California's win is Mw-robust on the unambiguously-Mw M ≥ 3 subset; the Italy
   erosion is a density effect from Md→Mw compression, matched by a native-scale
   density control.
-- Remaining hardening: CSEP re-run with the full-history spatial head
-  (full-history simulator built and validated to 9.5×10⁻⁷ nats; 100-day ×
-  10⁴-catalog run in progress). ETAS-refit-through-2020 forward control DONE
-  (above). Optional full flETAS (EM, free background) baseline beyond the SGD
-  refit control of §4.4 remains. Three-seed full-history heads are complete for
-  all six regions (spread ≤ 0.006 nats/event).
+- [DONE] CSEP re-run with the full-history spatial head: the full-history
+  gridded simulator is built and validated to 9.5×10⁻⁷ nats, and the 100-day
+  run at the matched 10³-catalog budget is complete — N 95/100, S 79/85,
+  M 90/92, with the S-test statistically indistinguishable from ETAS on the
+  paired days (McNemar exact p = 1.00), reported in §4.2.
+- Remaining hardening: ETAS-refit-through-2020 forward control DONE (above).
+  Optional full flETAS (EM, free background) baseline beyond the SGD refit
+  control of §4.4 remains. Three-seed full-history heads are complete for all
+  six regions (spread ≤ 0.006 nats/event).
 
 *Done in the pre-submission audit pass: §4.3 made reproducible
 (`scripts/memorization_eval.py`) with the divergence-curve figure

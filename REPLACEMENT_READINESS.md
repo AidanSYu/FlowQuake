@@ -21,6 +21,11 @@ hazard maps, or emergency-response systems.
 - Spatial/total likelihood: the full-history neural-ETAS head, initialized from
   each region's ETAS inversion, beats ETAS spatially in all six tested regions
   and flips total likelihood for the composite model.
+- CSEP with the likelihood-winning head: the full-history spatial head has been
+  run through the same pyCSEP path on the same 100 forecast days at a matched
+  10^3-catalog budget (N 95/100, S 79/85, M 90/92). Its S-test is statistically
+  indistinguishable from ETAS's on the paired days (McNemar exact p = 1.00), so
+  the spatial likelihood gain costs nothing in consistency.
 - Transfer: leave-one-region-out pooled pre-training plus brief fine-tuning
   rescues data-poor regions to ETAS-level temporal skill in the tested set.
 - Deployment shape: a single pooled checkpoint can be evaluated across all
@@ -30,8 +35,6 @@ hazard maps, or emergency-response systems.
 
 - The production kernel-mixture spatial head still trails ETAS; the spatial win
   is from the newer full-history head.
-- The ETAS-vs-FlowQuake CSEP head-to-head is built for the production head, but
-  CSEP has not been re-run with the full-history spatial head.
 - Per-region normalization and a train-era smoothed-seismicity background map
   are still required; the model is not target-catalog-free.
 - The 2020-2026 window is an out-of-time retrospective replication, not a
@@ -43,18 +46,22 @@ hazard maps, or emergency-response systems.
 
 ## Replacement Ladder
 
-1. Research preview: pass tests, reproduce the California temporal suite, CSEP
-   standalone consistency, cross-regime tables, and `scripts/audit_readiness.py`.
-2. Incumbent head-to-head: validate ETAS and FlowQuake through the same CSEP
-   harness with matched days and simulation counts.
-3. Full-head CSEP: validate the full-history spatial head in a matched
-   simulation harness.
+1. [DONE] Research preview: pass tests, reproduce the California temporal suite,
+   CSEP standalone consistency, cross-regime tables, and
+   `scripts/audit_readiness.py`.
+2. [DONE] Incumbent head-to-head: validate ETAS and FlowQuake through the same
+   CSEP harness with matched days and simulation counts (MANUSCRIPT.md §4.2;
+   both models consistent at a matched 10^3-catalog budget on 100 identical
+   days).
+3. [DONE] Full-head CSEP: validate the full-history spatial head in a matched
+   simulation harness (MANUSCRIPT.md §4.2; N 95/100, S 79/85, M 90/92, S-test
+   McNemar exact p = 1.00 against ETAS).
 4. Prospective deployment: freeze a checkpoint and run rolling forecasts on a
    future catalog window that was not used for model selection.
 5. Operational artifact: package one checkpoint, preprocessing, calibration,
    forecast export, audit logs, and failure-mode monitoring.
 
-Until rung 2 is complete, the honest public sentence is:
+Until rung 4 is complete, the honest public sentence is:
 
 > FlowQuake is a transferable neural point-process candidate that beats ETAS
 > temporally on dense catalogs and, with a full-history neural-ETAS spatial head
