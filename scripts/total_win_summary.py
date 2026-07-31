@@ -26,11 +26,37 @@ def add_time_rank(df):
     return out
 
 
+def head_seed_csvs(head: str) -> list[Path]:
+    """Every training seed of the neural-ETAS spatial head, sorted by seed.
+
+    This used to be a hardcoded `per_event_full_s0.csv`, which made the headline
+    total-likelihood win a single training seed of a stochastically trained head.
+    """
+    d = Path("runs/neural_etas") / head
+    out = [(int(p.stem.rsplit("_s", 1)[-1]), p) for p in sorted(d.glob("per_event_full_s*.csv"))
+           if p.stem.rsplit("_s", 1)[-1].isdigit()]
+    return [p for _, p in sorted(out)]
+
+
 def window(tag, fq_csv, head_csv, etas_csv, etas_cols=("TLL", "SLL"), seed=11):
-    if not all(Path(f).exists() for f in (fq_csv, head_csv, etas_csv)):
-        return {"missing": [f for f in (fq_csv, head_csv, etas_csv) if not Path(f).exists()]}
+    # head_csv may be one path or a list of per-seed paths. A list is averaged
+    # over seeds; the output always records how many seeds went in.
+    heads = [head_csv] if isinstance(head_csv, (str, Path)) else list(head_csv)
+    if not heads:
+        return {"missing": [f"runs/neural_etas/*/per_event_full_s*.csv for {tag}"]}
+    if not all(Path(f).exists() for f in (fq_csv, etas_csv, *heads)):
+        return {"missing": [str(f) for f in (fq_csv, etas_csv, *heads) if not Path(f).exists()]}
     fq = pd.read_csv(fq_csv, parse_dates=["time"])[["time", "tll"]]
-    hd = pd.read_csv(head_csv, parse_dates=["time"])[["time", "sll_neural"]]
+    per_seed = [pd.read_csv(f, parse_dates=["time"])[["time", "sll_neural"]] for f in heads]
+    if len(per_seed) == 1:
+        hd = per_seed[0]
+    else:
+        # Average sll_neural per (time, duplicate-rank) across seeds, keeping only
+        # events every seed scored, so the pairing below is unchanged.
+        stacked = pd.concat([add_time_rank(h) for h in per_seed])
+        grp = stacked.groupby(["time", "_time_rank"], as_index=False)
+        hd = grp.agg(sll_neural=("sll_neural", "mean"), _n=("sll_neural", "size"))
+        hd = hd[hd["_n"] == len(per_seed)][["time", "sll_neural"]]
     et = pd.read_csv(etas_csv, parse_dates=["time"]).dropna(subset=list(etas_cols))
     et = et[["time", *etas_cols]].rename(columns={etas_cols[0]: "TLL", etas_cols[1]: "SLL"})
     m = add_time_rank(fq).merge(add_time_rank(hd), on=["time", "_time_rank"])
@@ -40,6 +66,9 @@ def window(tag, fq_csv, head_csv, etas_csv, etas_cols=("TLL", "SLL"), seed=11):
            "n_etas_scored": int(len(et)),
            "coverage_vs_etas": round(float(len(m) / len(et)), 4) if len(et) else None,
            "pairing_key": "time+duplicate_rank",
+           "head_seed_files": [Path(f).name for f in heads],
+           "n_head_seeds": len(heads),
+           "single_seed_warning": len(heads) < 2,
            "fq_tll": float(m.tll.mean()), "fq_sll": float(m.sll_neural.mean()),
            "fq_nll": float(-(m.tll.mean() + m.sll_neural.mean())),
            "etas_tll": float(m.TLL.mean()), "etas_sll": float(m.SLL.mean()),
@@ -64,7 +93,7 @@ def main():
         ],
         "test_2007_2020": window(
             "test", "runs/n1_density/per_event_test.csv",
-            "runs/neural_etas/ComCat_25/per_event_full_s0.csv", ETAS_AUG),
+            head_seed_csvs("ComCat_25"), ETAS_AUG),
         "forward_2020_2026": window(
             "forward", "runs/n1_density/per_event_forward.csv",
             "runs/neural_etas/ComCat_25/per_event_forward_full.csv",

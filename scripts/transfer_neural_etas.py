@@ -111,11 +111,23 @@ def main():
         te = torch.as_tensor(np.flatnonzero(times >= test_start))
         va = torch.as_tensor(np.flatnonzero((times >= val_start) & (times < test_start)))
 
-        # in-region ceiling (target's own trained head) for reference
+        # In-region ceiling (the target's own trained head), averaged over every
+        # seed present rather than seed 0 alone. This is the number the zero-shot
+        # transfer is judged against, so a single stochastic seed here decides
+        # whether a transfer "matches or beats" the region's own model.
         own = None
-        own_ckpt = f"runs/neural_etas/{tgt}/head_full_s0.pt"
-        if Path(own_ckpt).exists():
-            own = json.load(open(f"runs/neural_etas/{tgt}/summary_full_s0.json")).get("dS_mean")
+        own_seeds = sorted(
+            (int(p.stem.rsplit("_s", 1)[-1]), p)
+            for p in Path(f"runs/neural_etas/{tgt}").glob("summary_full_s*.json")
+            if p.stem.rsplit("_s", 1)[-1].isdigit()
+        )
+        own_vals = []
+        for _, p in own_seeds:
+            v = json.load(open(p)).get("dS_mean")
+            if v is not None:
+                own_vals.append(float(v))
+        if own_vals:
+            own = float(np.mean(own_vals))
 
         # zero-shot: load all source learned weights onto target-init head
         model.load_state_dict(state, strict=False)
@@ -126,7 +138,11 @@ def main():
         model = fewshot_recalibrate(model, data, va)
         fs = score(model, data, te, etas_sll, seed=800 + i)
 
-        results["targets"][tgt] = {"own_native_dS": own, "zero_shot": zs, "few_shot": fs}
+        results["targets"][tgt] = {"own_native_dS": own,
+                                   "own_native_seeds": [s for s, _ in own_seeds],
+                                   "own_native_dS_per_seed": [round(v, 4) for v in own_vals],
+                                   "own_native_single_seed_warning": len(own_vals) < 2,
+                                   "zero_shot": zs, "few_shot": fs}
         print(f"{tgt:10} own_dS {own}  |  zero-shot dS {zs['dS']:+.4f} {zs['ci']} {zs['decision']}"
               f"  |  few-shot dS {fs['dS']:+.4f} {fs['ci']} {fs['decision']}")
 

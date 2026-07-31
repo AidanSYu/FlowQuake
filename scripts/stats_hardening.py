@@ -18,6 +18,7 @@ import os
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -117,6 +118,23 @@ def gains(region: str, csv: str):
             meta)
 
 
+def head_seed_csvs(head: str) -> list[tuple[int, Path]]:
+    """Every training seed of the neural-ETAS spatial head for one region.
+
+    Returns [(seed, path), ...] sorted by seed. Previously this was hardcoded to
+    `per_event_full_s0.csv`, so the total-likelihood headline was a single
+    training seed while the manuscript described a three-seed mean. Globbing
+    keeps the two in step and makes a missing seed visible instead of silent.
+    """
+    d = Path("runs/neural_etas") / head
+    out = []
+    for p in sorted(d.glob("per_event_full_s*.csv")):
+        tail = p.stem.rsplit("_s", 1)[-1]
+        if tail.isdigit():
+            out.append((int(tail), p))
+    return sorted(out)
+
+
 def main():
     res = {"per_region": {}, "family_dT_holm": None, "notes": []}
     pvals = {}
@@ -162,23 +180,65 @@ def main():
         "Iran": ("runs/iran_fewshot/per_event_test.csv", "Iran_25"),
     }
     ETAS_DIR["California"] = "output_data_ComCat_25"
-    tot_p, tot_rows = {}, {}
+    tot_p, tot_rows, skipped = {}, {}, []
     for i, (region, (fq_csv, head)) in enumerate(HEAD_COMBOS.items()):
-        head_csv = f"runs/neural_etas/{head}/per_event_full_s0.csv"
-        if not (Path(fq_csv).exists() and Path(head_csv).exists()):
+        seed_csvs = head_seed_csvs(head)
+        if not Path(fq_csv).exists() or not seed_csvs:
+            skipped.append({"region": region,
+                            "missing_temporal": not Path(fq_csv).exists(),
+                            "n_head_seeds_found": len(seed_csvs)})
             continue
         fq = pd.read_csv(fq_csv, parse_dates=["time"])
-        hd = pd.read_csv(head_csv, parse_dates=["time"])
-        m, pair_meta = pair_total(region, fq, hd)
-        d = (m["tll"] + m["sll_neural"] - m["TLL"] - m["SLL"]).to_numpy()
-        s = paired_gain_summary(d, seed=600 + i).asdict()
-        tot_p[region] = block_bootstrap_pvalue(d, seed=700 + i)
+
+        # One paired delta series per training seed of the spatial head. The
+        # headline is the mean over seeds, not seed 0: a single seed of a
+        # stochastically trained head is not a property of the method.
+        per_seed, pair_meta = [], None
+        for sd, head_csv in seed_csvs:
+            hd = pd.read_csv(head_csv, parse_dates=["time"])
+            m, pm = pair_total(region, fq, hd)
+            d = (m["tll"] + m["sll_neural"] - m["TLL"] - m["SLL"]).to_numpy()
+            pair_meta = pair_meta or pm
+            per_seed.append((sd, d, paired_gain_summary(d, seed=600 + i).asdict()))
+
+        seed_means = [s["mean"] for _, _, s in per_seed]
+        n_seeds = len(per_seed)
+
+        # Inference runs on the seed-averaged per-event series where the seeds
+        # score a common event set, which is the usual case; otherwise fall back
+        # to seed 0's series for the bootstrap and say so in the output.
+        lens = {len(d) for _, d, _ in per_seed}
+        pooled_across_seeds = len(lens) == 1
+        d_infer = (np.mean([d for _, d, _ in per_seed], axis=0)
+                   if pooled_across_seeds else per_seed[0][1])
+
+        s = paired_gain_summary(d_infer, seed=600 + i).asdict()
+        tot_p[region] = block_bootstrap_pvalue(d_infer, seed=700 + i)
         tot_rows[region] = {"n": s["n"], "dTot_mean": round(s["mean"], 4),
                             "dTot_ci": [round(s["ci"][0], 4), round(s["ci"][1], 4)],
                             "decision": s["decision"], "p_boot": round(tot_p[region], 5),
                             "dTot_abs_below_0.05": bool(abs(s["mean"]) < 0.05),
                             "temporal_variant": "fewshot" if "fewshot" in fq_csv else "native",
-                            "pairing": pair_meta}
+                            "pairing": pair_meta,
+                            "head_seeds": [sd for sd, _, _ in per_seed],
+                            "n_head_seeds": n_seeds,
+                            "dTot_seed_means": [round(x, 4) for x in seed_means],
+                            "dTot_seed_std": (round(float(np.std(seed_means, ddof=1)), 4)
+                                              if n_seeds > 1 else None),
+                            "seed_aggregation": ("mean over per-event series"
+                                                 if pooled_across_seeds else
+                                                 "seed 0 only (seeds scored different event counts)"),
+                            "single_seed_warning": n_seeds < 2}
+    if skipped:
+        print(f"[stats_hardening] WARNING: {len(skipped)} of {len(HEAD_COMBOS)} regions "
+              f"dropped from the total-likelihood family for missing inputs: "
+              f"{[s['region'] for s in skipped]}. Holm correction below is over the "
+              f"{len(tot_p)} surviving regions, NOT over {len(HEAD_COMBOS)}.", file=sys.stderr)
+        res["total_with_head_skipped"] = skipped
+    single = [r for r, v in tot_rows.items() if v["single_seed_warning"]]
+    if single:
+        print(f"[stats_hardening] WARNING: single-seed head in {single}. The manuscript "
+              f"reports a three-seed mean; do not quote these as the headline.", file=sys.stderr)
     if tot_p:
         adj = holm_bonferroni(tot_p)
         for r in tot_rows:
