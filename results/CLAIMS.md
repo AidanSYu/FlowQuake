@@ -276,6 +276,22 @@ the loose `runs/csep_results_s1555.json`. The loose file is byte-identical to
 ninth run. The two `*_smoke` files are 2–3 day debug runs (`n_sims` 500 and 200)
 and back no manuscript number.
 
+**Provenance caveat — these artifacts predate a simulator fix.** Every file in
+this family was produced through `flowquake.ntest.simulate_day_events`, which
+carried the absolute event time in float32 (`t_last`). At test-era day numbers
+that is a 21–42 second quantum; see `MOONSHOT.md` invariant 1o. The fix widens
+it to float64, so **these artifacts are no longer bit-reproducible against
+current code.**
+
+The substance is unaffected, and that is measured rather than assumed: a paired
+comparison on one checkpoint over 30 target-bearing windows at 400 sims, same
+torch seed, float64 against a reverted float32 copy, moves the total expected
+count by **−1.005%** and the mean spatial TV by **0.105**. The Monte-Carlo noise
+floor — the same code with a different seed — is **−0.713%** and **0.853**. The
+defect is therefore 1.4× the noise on count and 0.12× on shape, i.e. below the
+scatter these pass rates already carry. A 95/100 does not become a different
+number in any meaningful sense; it simply will not reproduce byte-for-byte.
+
 | # | claim (location) | stated | artifact value | artifact → key | status |
 |---|---|---|---|---|---|
 | C1 | production N1 standalone N-test, 100 days × 10⁴ sims (`:384`) | 100 / 95 / 95% | `n_eval` 100, `n_pass` 95, `pass_rate` 0.95 | `n1_density/csep/csep_results.json` → `summary.N` | MATCH |

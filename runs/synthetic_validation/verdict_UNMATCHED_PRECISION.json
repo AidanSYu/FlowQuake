@@ -1,0 +1,38 @@
+{
+  "summary": {
+    "matched_window": {
+      "informative": 0.73518873951702,
+      "null": 0.323919769485783
+    },
+    "matched_n": {
+      "informative": 0.7805051676325127,
+      "null": 0.3732731044259452
+    }
+  },
+  "verdict": "PASS",
+  "args": {
+    "out": "runs/synthetic_validation",
+    "years": 49.0,
+    "m_floor": 0.5,
+    "m_split": 2.5,
+    "m_target": 3.0,
+    "m_large": 4.5,
+    "mc": [
+      2.5,
+      2.0,
+      1.5,
+      1.0
+    ],
+    "b": 1.0,
+    "branching": 0.45,
+    "bg_per_day": 6.0,
+    "seed": 7,
+    "steps": 3000,
+    "n_sims": 100,
+    "sample_steps": 8,
+    "horizon": 90.0,
+    "bin_km": 15.0,
+    "concurrency": 6,
+    "device": "cpu"
+  }
+}

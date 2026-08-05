@@ -1,0 +1,62 @@
+{
+  "verdict": "PASS",
+  "slopes": {
+    "informative": {
+      "shape": 0.04155632922462126,
+      "level": 0.06489885228963821,
+      "total": 0.10645518151424894
+    },
+    "null_surrogate": {
+      "shape": -0.8385119911236927,
+      "level": -0.2296002593871206,
+      "total": -1.0681122505107923
+    }
+  },
+  "probe_max_corr": {
+    "informative": {
+      "mc": 1.0,
+      "shape": -5.48330428580748,
+      "level": -3.542836779040342,
+      "total": -9.098019229973719,
+      "corr": 0.15447358517075344,
+      "corr_p": 2.1285606026344434e-10,
+      "corr_ceiling": 0.6560808450152781,
+      "corr_share": 0.23544900959142653,
+      "cv_expected": 0.6083237022256341,
+      "n_targets": 123,
+      "n_windows": 1673
+    },
+    "null_surrogate": {
+      "mc": 2.5,
+      "shape": -5.561841550003715,
+      "level": -3.725773945664442,
+      "total": -9.359493660794062,
+      "corr": 0.0813798127840956,
+      "corr_p": 0.0008632885558352138,
+      "corr_ceiling": 0.6560808450152781,
+      "corr_share": 0.12403930613490251,
+      "cv_expected": 0.6171984567511077,
+      "n_targets": 123,
+      "n_windows": 1673
+    }
+  },
+  "args": {
+    "root": "runs/real_validation_h1",
+    "out": "runs/real_validation_h1/etas",
+    "arms": [
+      "informative",
+      "null_surrogate"
+    ],
+    "mc": [
+      2.5,
+      2.0,
+      1.5,
+      1.0
+    ],
+    "background": "uniform",
+    "n_sims": 100,
+    "n_iter": 6,
+    "concurrency": 2,
+    "min_corr": 0.2
+  }
+}

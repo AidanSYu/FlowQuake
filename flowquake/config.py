@@ -43,6 +43,8 @@ class ModelConfig:
     spatial_density_feat: bool = False  # N1: density-adaptive kernel width
     density_radius_km: float = 2.0
     d_floor_km: float = 0.25
+    encoder_input: str = "full"   # gate G2: full | safe | augmented
+    frame_shift: float = 0.5
 
 
 @dataclass

@@ -1,0 +1,84 @@
+# MOONSHOT.md lead panel: WHITE (San Jacinto fault zone, White et al. 2019).
+#
+# WHY THIS IS THE LEAD PANEL. It is the only catalog on hand that clears
+# invariant 1e with room to spare AND has a well-distributed target set:
+#
+#   Mc (b-stability, MBS)         0.6   -- b flat at ~0.92 from mc 0.60 upward
+#   usable grid floor             0.9   -- Mc + MC_SAFETY_MARGIN
+#   M>=3.0 test targets           132
+#   30-day windows                56, of which 45 non-empty
+#   most-populated window         11% of all targets
+#
+# That last line is the one that matters. Inside the ComCat completeness mask,
+# 87% of the M>=4 targets were the 2019 Ridgecrest sequence and a single window
+# held 85% of them -- an effective sample size near ONE independent sequence.
+# WHITE's targets are spread across 45 windows, so a block bootstrap over
+# sequences has something to resample.
+#
+# M_TARGET = 3.0, NOT 4.0. WHITE holds only 23 M>=4 events in 13 years. Across
+# panels M_TARGET may differ (invariant 1 fixes the target set WITHIN a curve,
+# not across panels), and the difference doubles as a check on whether the
+# answer depends on target magnitude. It must appear on the figure.
+#
+# GRID. {2.5, 2.0, 1.5, 1.0}, all above the 0.9 floor -- 1.5 decades. The
+# high-mc end is data-starved on purpose: 529 training events at mc 2.5 against
+# 10,833 at mc 1.0. That IS the phenomenon under study, and the matched-N arm
+# separates "more events" from "more information per event". Check convergence
+# at mc 2.5 before trusting that point; drop it and fall back to a 1.0-decade
+# grid {2.0, 1.5, 1.0} if it fails to train.
+#
+# ARCHITECTURE is smaller than configs/moonshot_lowmc.yaml because the training
+# set is ~10k events rather than ~500k. Sizing per PANEL is legal; sizing per
+# curve POINT is not -- within this panel only `mc` may vary.
+#
+# SPATIAL BINS: run this panel with --bin-km 2.0. Bin size is a CLI argument,
+# not a config field, but it is part of the panel's identity and must be the
+# SAME for every point on this curve and for the ETAS control. 2.0 km gives 854
+# active cells, 6.5 per target event, matching the ~6 the ComCat frame uses.
+# Equalising cells-per-target across panels keeps their slopes comparable,
+# which matters because the headline number is a pool across panels. At the
+# 15 km ComCat default this 110 km box collapses to 0.6 cells per target and
+# the spatial term has no room to discriminate.
+data:
+  catalog_path: reference/Datasets/WHITE/WHITE_catalog.csv
+  mcut: 1.0
+  aux_start: '2008-01-01'
+  train_start: '2008-01-01'
+  val_start: '2015-01-01'
+  test_start: '2016-06-01'
+  test_end: '2020-12-31'
+model:
+  d_model: 64
+  n_layers: 3
+  d_state: 24
+  n_heads: 4
+  expand: 2
+  chunk: 64
+  flow_hidden: 64
+  mix_hidden: 48
+  flow_layers: 3
+  loss_weights: [1.0, 1.0, 0.5]
+  sigma_min: [0.02, 0.01, 0.05]
+  dropout: 0.15
+  mag_dequant: 0.01
+  input_noise: 0.1
+  h_bottleneck: 0
+  h_noise: 0.3
+  spatial_density_feat: true
+  d_floor_km: 0.1
+  encoder_input: full
+train:
+  window: 1024
+  burn_in: 128
+  batch_size: 8
+  steps: 12000
+  lr: 0.0004
+  weight_decay: 0.05
+  warmup: 400
+  grad_clip: 1.0
+  seed: 1555
+  val_every: 200
+  val_events: 2048
+  val_ode_steps: 32
+  patience: 20
+  out_dir: runs/panel_white

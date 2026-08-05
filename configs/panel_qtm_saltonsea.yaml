@@ -1,0 +1,66 @@
+# MOONSHOT.md panel: QTM Salton Sea (Ross et al. 2019, template-matched).
+#
+#   Mc (b-stability MBS, training era)  1.4
+#   grid floor  = Mc + MC_SAFETY_MARGIN  1.7
+#   grid                                 {2.5, 2.1, 1.7}  -- 0.8 decades
+#   training events at the grid          1,939 / ~4,000 / ~9,500
+#   M>=3.0 test targets                  71 over 44 windows, 28 non-empty
+#   most-populated window                24% of targets
+#
+# The narrowest panel of the three dense ones, and kept anyway: cross-region
+# agreement is the evidence the multi-region design rests on, and a panel that
+# only spans 0.8 decades still constrains the slope. It contributes through
+# `flowquake.pooling.random_effects_pool`, which weights it by its own
+# uncertainty rather than by wishful thinking.
+#
+# Salton Sea is geothermally active and swarm-dominated, which makes it the
+# most tectonically DIFFERENT of the panels. If the slope holds here as well as
+# on San Jacinto, that is evidence for a general limit rather than a property
+# of one fault system -- and if it does not, the heterogeneity is the finding
+# (see the tau^2 / I^2 reporting in the pooling module).
+#
+# SPATIAL BINS: run with --bin-km 3.0 (427 active cells, 6.0 per target).
+# See configs/panel_white.yaml for why this is equalised across panels.
+data:
+  catalog_path: reference/Datasets/QTM/SaltonSea_catalog.csv
+  mcut: 1.7
+  aux_start: '2008-01-01'
+  train_start: '2008-01-01'
+  val_start: '2013-06-01'
+  test_start: '2014-06-01'
+  test_end: '2017-12-31'
+model:
+  d_model: 64
+  n_layers: 3
+  d_state: 24
+  n_heads: 4
+  expand: 2
+  chunk: 64
+  flow_hidden: 64
+  mix_hidden: 48
+  flow_layers: 3
+  loss_weights: [1.0, 1.0, 0.5]
+  sigma_min: [0.02, 0.01, 0.05]
+  dropout: 0.15
+  mag_dequant: 0.01
+  input_noise: 0.1
+  h_bottleneck: 0
+  h_noise: 0.3
+  spatial_density_feat: true
+  d_floor_km: 0.1
+  encoder_input: full
+train:
+  window: 1024
+  burn_in: 128
+  batch_size: 8
+  steps: 12000
+  lr: 0.0004
+  weight_decay: 0.05
+  warmup: 400
+  grad_clip: 1.0
+  seed: 1555
+  val_every: 200
+  val_events: 2048
+  val_ode_steps: 32
+  patience: 20
+  out_dir: runs/panel_qtm_saltonsea

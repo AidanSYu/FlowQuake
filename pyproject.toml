@@ -46,3 +46,6 @@ packages = ["flowquake"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "slow: long-running (ETAS EM inversion, full sweeps); deselect with -m 'not slow'",
+]

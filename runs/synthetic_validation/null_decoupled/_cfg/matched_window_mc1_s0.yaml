@@ -1,0 +1,54 @@
+data:
+  catalog_path: runs/synthetic_validation/catalogs/null_decoupled.csv
+  mcut: 1.0
+  aux_start: '1971-01-01'
+  train_start: '1981-01-01'
+  val_start: '1998-01-01'
+  test_start: '2007-01-01'
+  test_end: '2020-01-17'
+  n_near: 0
+  near_rmax_km: 30.0
+  adaptive_bg: false
+model:
+  d_model: 96
+  n_layers: 4
+  d_state: 32
+  n_heads: 6
+  expand: 2
+  chunk: 64
+  flow_hidden: 96
+  mix_hidden: 64
+  flow_layers: 3
+  loss_weights:
+  - 1.0
+  - 1.0
+  - 0.5
+  sigma_min:
+  - 0.02
+  - 0.01
+  - 0.05
+  dropout: 0.1
+  mag_dequant: 0.01
+  input_noise: 0.1
+  h_bottleneck: 0
+  h_noise: 0.1
+  spatial_density_feat: true
+  density_radius_km: 2.0
+  d_floor_km: 0.1
+  encoder_input: full
+  frame_shift: 0.5
+train:
+  window: 2048
+  burn_in: 256
+  batch_size: 8
+  steps: 3000
+  lr: 0.0003
+  weight_decay: 0.03
+  warmup: 200
+  grad_clip: 1.0
+  seed: 1000
+  val_every: 500
+  val_events: 2048
+  val_ode_steps: 16
+  patience: 8
+  out_dir: runs/synthetic_validation/null_decoupled/matched_window_mc1_s0

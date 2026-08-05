@@ -1,0 +1,44 @@
+[
+  {
+    "background": "uniform",
+    "mc": 3.5,
+    "branching_ratio": 0.9899999838963559,
+    "ll_per_target_event": -9.104904552081347,
+    "brier": 0.007143331913091011
+  },
+  {
+    "background": "uniform",
+    "mc": 3.0,
+    "branching_ratio": 0.9899999143847709,
+    "ll_per_target_event": -9.229812359017167,
+    "brier": 0.007159271979836643
+  },
+  {
+    "background": "uniform",
+    "mc": 2.8,
+    "branching_ratio": 0.9899994011832829,
+    "ll_per_target_event": -9.19908163640262,
+    "brier": 0.007164514329478302
+  },
+  {
+    "background": "smoothed",
+    "mc": 3.5,
+    "branching_ratio": 0.9899373337300785,
+    "ll_per_target_event": -8.958893610031382,
+    "brier": 0.007135794198535995
+  },
+  {
+    "background": "smoothed",
+    "mc": 3.0,
+    "branching_ratio": 0.9899995824916005,
+    "ll_per_target_event": -9.01330912298677,
+    "brier": 0.007140957239291611
+  },
+  {
+    "background": "smoothed",
+    "mc": 2.8,
+    "branching_ratio": 0.9899988551864649,
+    "ll_per_target_event": -9.008206041235066,
+    "brier": 0.007150217788772281
+  }
+]

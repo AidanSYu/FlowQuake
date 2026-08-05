@@ -34,3 +34,6 @@ runs/**
 CSEP_day_*.csv
 per_event*.csv
 *_per_event.csv
+
+# macOS finder metadata
+.DS_Store

@@ -17,8 +17,16 @@ encoders (DeepSTPP sees 20 events) and hand-crafted Omori/Gutenberg-Richter
 kernels — are exactly what this stack replaces:
 
 - **Encoder** (`flowquake/ssm.py`): Mamba-2-style selective SSM in pure
-  PyTorch (chunked SSD scan, no CUDA kernels — runs on Windows). Encodes the
-  *entire* catalog history, with magnitude marks (DeepSTPP drops them).
+  PyTorch (chunked SSD scan, no CUDA kernels — runs on Windows), able to encode
+  the *entire* catalog history with magnitude marks (DeepSTPP drops them).
+  **It is switched off in every reported result.** All configs set
+  `h_bottleneck: 0`, which makes `self.encoder = None`
+  (`flowquake/model.py:76-83`); the heads then condition on
+  `SAFE_TOKEN_DIMS` — 30 hand-crafted Hawkes order statistics over a 64-event
+  lag window (`flowquake/data.py:26`). The encoder was built and trained and
+  **lost** at every width and checkpoint tested (§4.3), so the benchmark's
+  "fixed-window encoders" diagnosis is not what our results support. Reported
+  temporal model: ~29.5k parameters, not the ~290k encoder configuration.
 - **Heads** (`flowquake/flow.py`, `flowquake/heads.py`, `flowquake/model.py`):
   a conditional **rectified flow on log-τ** for time (exact ODE likelihood),
   plus **structured, observation-anchored** heads for space (a mixture of

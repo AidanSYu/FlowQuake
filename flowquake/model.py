@@ -66,16 +66,21 @@ class FlowQuakeTPP(nn.Module):
         density_radius_km: float = 2.0,
         d_floor_km: float = 0.25,
         mix_k: int | None = None,   # total mixture components (default MIX_K)
+        encoder_input: str = "full",   # gate G2: full | safe | augmented
+        frame_shift: float = 0.5,      # sd of the augmented translation
     ):
         super().__init__()
         mix_k = MIX_K if mix_k is None else mix_k
         self.h_bottleneck = h_bottleneck
         self.h_noise = h_noise
+        self.encoder_input = encoder_input
+        self.frame_shift = frame_shift
         self.use_density_feat = spatial_density_feat
         self.density_radius_km = density_radius_km
         if h_bottleneck > 0:
+            enc_d_in = len(SAFE_TOKEN_DIMS) if encoder_input == "safe" else D_IN
             self.encoder = SSMEncoder(
-                d_in=D_IN, d_model=d_model, n_layers=n_layers, d_state=d_state,
+                d_in=enc_d_in, d_model=d_model, n_layers=n_layers, d_state=d_state,
                 n_heads=n_heads, expand=expand, chunk=chunk,
             )
             self.h_proj = nn.Linear(d_model, h_bottleneck)
@@ -157,14 +162,67 @@ class FlowQuakeTPP(nn.Module):
 
     # --- shared conditioning ----------------------------------------------
 
+    def _encoder_input(self, tokens):
+        """Tokens as the SSM encoder sees them (gate G2, MOONSHOT.md).
+
+        §4.3 concludes "flexibility causes memorization, the cure is structural",
+        but the encoder is handed ABSOLUTE x, y (token dims 1, 2) and trained for
+        ~600+ epochs, and none of the three standard fixes for coordinate
+        memorization was ever tried. Without them the claim is really
+        "absolute-coordinate conditioning plus long training memorizes", which is
+        a much weaker statement. `encoder_input` selects the arm:
+
+          "full"      what every published run used: absolute coordinates in.
+          "safe"      drop absolute x, y — the encoder sees only
+                      translation-invariant relational features. Memorizing a
+                      specific catalog position is then impossible by
+                      construction, not by early stopping.
+          "augmented" keep absolute coordinates but apply an independent random
+                      rotation/reflection/translation to the encoder's copy of
+                      the frame on every forward pass. Absolute position stops
+                      being a stable feature while all relational structure is
+                      preserved exactly.
+
+        The transform touches the ENCODER INPUT ONLY. The heads and the
+        train-era KDE background are indexed in the catalog's own frame, so
+        moving them would misalign the background rather than test anything.
+        """
+        mode = self.encoder_input
+        if mode == "safe":
+            return tokens[..., SAFE_TOKEN_DIMS]
+        if mode != "augmented" or not self.training:
+            return tokens
+        out = tokens.clone()
+        B = tokens.shape[0]
+        dev, dt = tokens.device, tokens.dtype
+        th = torch.rand(B, device=dev, dtype=dt) * (2 * math.pi)
+        cos, sin = torch.cos(th), torch.sin(th)
+        flip = torch.where(torch.rand(B, device=dev, dtype=dt) < 0.5,
+                           -torch.ones(B, device=dev, dtype=dt),
+                           torch.ones(B, device=dev, dtype=dt))
+
+        def rot(ix, iy, translate):
+            px, py = out[..., ix], out[..., iy] * flip.view(-1, 1)
+            nx = px * cos.view(-1, 1) - py * sin.view(-1, 1)
+            ny = px * sin.view(-1, 1) + py * cos.view(-1, 1)
+            if translate:
+                nx = nx + self.frame_shift * torch.randn(B, 1, device=dev, dtype=dt)
+                ny = ny + self.frame_shift * torch.randn(B, 1, device=dev, dtype=dt)
+            out[..., ix], out[..., iy] = nx, ny
+
+        rot(1, 2, True)                       # absolute position
+        for j in range(len(RECENCY_LAGS)):    # per-lag displacements (no shift:
+            rot(4 + 4 * j + 1, 4 + 4 * j + 2, False)   # they are already relative)
+        return out
+
     def _cond(self, tokens, mask):
         """Build head conditioning rows for masked positions."""
         tok_safe = tokens[mask][:, SAFE_TOKEN_DIMS]
         if self.h_bottleneck == 0:
             return tok_safe
-        enc_in = tokens
+        enc_in = self._encoder_input(tokens)
         if self.training and self.input_noise > 0:
-            enc_in = tokens + self.input_noise * torch.randn_like(tokens)
+            enc_in = enc_in + self.input_noise * torch.randn_like(enc_in)
         h = self.h_proj(self.encoder(enc_in)[mask])
         if self.training and self.h_noise > 0:
             h = h + self.h_noise * torch.randn_like(h)
@@ -204,7 +262,8 @@ class FlowQuakeTPP(nn.Module):
         outs = []
         layer_states = None
         for s in range(0, E, segment):
-            h, layer_states = self.encoder.prefill(tokens[:, s : s + segment], layer_states)
+            h, layer_states = self.encoder.prefill(
+                self._encoder_input(tokens[:, s : s + segment]), layer_states)
             outs.append(h)
         return torch.cat(outs, dim=1)
 

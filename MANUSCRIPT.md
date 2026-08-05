@@ -104,9 +104,19 @@ reasons NPPs underperform: fixed-window encoders that discard most of the
 history, and the absence of the physically-motivated Omori/Gutenberg–Richter
 kernels ETAS hard-codes.
 
-We address both. FlowQuake (i) encodes the whole catalog and (ii) replaces
-hand-crafted kernels with learned but physically-structured density heads. We
-make five contributions. (1) A temporal win over ETAS on every California
+We address both — and one of the two answers is negative, which we report as a
+finding rather than bury. FlowQuake (i) implements the whole-catalog encoder the
+benchmark's diagnosis calls for, a Mamba-2-style selective SSM over the entire
+event sequence, and (ii) replaces hand-crafted kernels with learned but
+physically-structured density heads. **Only (ii) pays.** At every bottleneck
+width and every checkpoint we tested, routing the learned whole-catalog state
+into the heads is worse than conditioning on translation-invariant relational
+features computed over a 64-event lag window (§4.3); every result reported below
+therefore uses `h_bottleneck = 0`, in which the SSM encoder is not instantiated
+and the heads see a 30-dimensional hand-crafted relational block. The benchmark's
+attribution of NPP failure to fixed-window encoding is thus not supported by our
+experiments: the deficit we could close was the *kernel* structure, not the
+context length. We make five contributions. (1) A temporal win over ETAS on every California
 catalog in the benchmark in 3-seed means, with autocorrelation-aware significance
 on four of five catalogs and CSEP consistency — and an **out-of-time
 replication** on the 2020–2026 California window.
@@ -223,11 +233,23 @@ exact test events ETAS is scored on (verified: identical event sets to within
 one event per catalog; ETAS `ll_scores` reproduced exactly from per-event
 output).
 
-**Encoder.** A pure-PyTorch Mamba-2-style selective state-space encoder over the
-entire event sequence (chunked SSD scan; verified against a naive recurrence).
-Each event token carries log-Δt, location, magnitude, and translation-invariant
-relational features (per-lag log-Δt, displacement, and magnitude to the last
-1–64 events).
+**Encoder, and what the reported models actually condition on.** The
+implementation provides a pure-PyTorch Mamba-2-style selective state-space
+encoder over the entire event sequence (chunked SSD scan; verified against a
+naive recurrence, `tests/test_ssm.py`). Each event token carries log-Δt,
+location, magnitude, and translation-invariant relational features (per-lag
+log-Δt, displacement, and magnitude to the last 1–64 events).
+
+The encoder reaches the heads only through the bottleneck `h` below. **Every
+result in §4 is at `h = 0`**, where `FlowQuakeTPP` sets `self.encoder = None`
+(`flowquake/model.py:76-83`) and the head conditioning is
+`tokens[:, SAFE_TOKEN_DIMS]` — a 30-dimensional vector of log-Δt, magnitude and
+the seven-lag relational block, i.e. **hand-crafted Hawkes order statistics over
+a 64-event window, with no learned sequence model in the path**. The reported
+temporal model is therefore ~29.5k parameters (CondFlow 22,657 +
+KernelMixtureHead 6,852 + GRMagnitudeHead 31), not the ~290k of the encoder
+configuration. We state this plainly because the negative result in §4.3 is only
+interpretable against it: the whole-catalog encoder was built, trained, and lost.
 
 **Heads** (chain rule f = f_t · f_s · f_m):
 - *Time*: a conditional rectified flow on log-Δt with exact ODE likelihood.

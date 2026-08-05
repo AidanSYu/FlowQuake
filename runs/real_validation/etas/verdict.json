@@ -1,0 +1,38 @@
+{
+  "verdict": "INCONCLUSIVE",
+  "slopes": {
+    "informative": {
+      "shape": 3.016760426132591,
+      "level": -0.13052251691159522,
+      "total": 2.886237909220994
+    },
+    "null_surrogate": {
+      "shape": 2.6185590904376577,
+      "level": -0.07292604694901338,
+      "total": 2.5456330434886434
+    }
+  },
+  "probe_max_corr": {
+    "informative": -0.017429384632898903,
+    "null_surrogate": 0.1298470632606743
+  },
+  "args": {
+    "root": "runs/real_validation",
+    "out": "runs/real_validation/etas",
+    "arms": [
+      "informative",
+      "null_surrogate"
+    ],
+    "mc": [
+      2.5,
+      2.0,
+      1.5,
+      1.0
+    ],
+    "background": "uniform",
+    "n_sims": 100,
+    "n_iter": 4,
+    "concurrency": 2,
+    "min_corr": 0.2
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "summary": {
+    "matched_window": {
+      "informative": -0.12464280920281559,
+      "null": -0.6126271425299835
+    },
+    "matched_n": {
+      "informative": -0.13316844047578075,
+      "null": -0.5968865944167169
+    }
+  },
+  "verdict": "FAIL",
+  "args": {
+    "out": "runs/synthetic_validation",
+    "years": 49.0,
+    "m_floor": 0.5,
+    "m_split": 2.5,
+    "m_target": 3.0,
+    "m_large": 4.5,
+    "mc": [
+      2.5,
+      2.0,
+      1.5,
+      1.0
+    ],
+    "b": 1.0,
+    "branching": 0.45,
+    "bg_per_day": 6.0,
+    "seed": 7,
+    "steps": 3000,
+    "n_sims": 100,
+    "sample_steps": 8,
+    "horizon": 90.0,
+    "bin_km": 15.0,
+    "concurrency": 3,
+    "mem_per_worker": 5.0,
+    "device": "cpu"
+  }
+}

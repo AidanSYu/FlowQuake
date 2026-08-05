@@ -1,0 +1,30 @@
+max_lanes tuning on RTX 5090 (torch 2.8.0+cu128), 2026-08-05.
+
+`score_point` never passes max_lanes, so every scored point used the 16,384
+default -- chosen for a 48 GB laptop that had been driven into 34 GB of swap.
+Timed via simulate_windows directly (no repo code modified for the measurement).
+The mc 1.0 checkpoint is used for both regimes: architecture is a per-PANEL
+choice, so only n_sims differs, which is the variable under test.
+
+regime     n_sims  max_lanes  wins      sec  sec/window  peak_GB  speedup
+mc1.0        3902      16384     8     7.16       0.896     1.31    1.00x
+mc1.0        3902      65536     8     6.57       0.822     2.60    1.09x
+mc1.0        3902     262144     8     5.82       0.727     2.60    1.23x
+mc1.0        3902    1048576     8     6.62       0.828     2.60    1.08x
+mc2.5       98155      16384     2    40.10      20.048     1.37    1.00x
+mc2.5       98155      65536     2    25.68      12.841     5.45    1.56x
+mc2.5       98155     262144     2    28.27      14.137    16.29    1.42x
+mc2.5       98155    1048576     2    28.22      14.108    16.29    1.42x
+
+USE max_lanes = 65536. It is 1.56x on the mc 2.5 branch, which is ~69% of a
+sweep's cost. Larger is WORSE (1.42x) and triples peak memory to 16.3 GB, so
+"give it the whole card" would have been both slower and closer to OOM.
+
+The two regimes hit different branches of the chunking logic: at mc 1.0 a single
+window fits (n_sims < max_lanes) so it batches across WINDOWS; at mc 2.5 one
+window alone exceeds the budget so it splits SIMULATIONS within a window. Only
+the second branch matters for cost.
+
+Note the mc1.0 rows saturate at 2.60 GB above 65,536 because the 8-window trial
+only supplies 31,216 lanes total -- there is nothing more to batch. Its 1.23x is
+within run-to-run noise and should not be read as a real optimum.

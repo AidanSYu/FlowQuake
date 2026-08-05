@@ -1,0 +1,65 @@
+# MOONSHOT.md panel: QTM San Jacinto (Ross et al. 2019, template-matched).
+#
+#   Mc (b-stability MBS, training era)  1.0
+#   grid floor  = Mc + MC_SAFETY_MARGIN  1.3
+#   grid                                 {2.3, 1.8, 1.3}  -- 1.0 decade
+#   training events at the grid          ~600 / ~2,000 / 5,950
+#   M>=3.0 test targets                  58 over 44 windows, 27 non-empty
+#   most-populated window                14% of targets
+#
+# Tied with WHITE for the least concentrated target set (14%), which is what
+# makes its block-bootstrap interval trustworthy. The cost is the sparsest
+# high-mc point of any panel: ~600 training events at mc 2.3. Check that point
+# for convergence before trusting it, and if it fails, fall back to a
+# {1.8, 1.3} two-point grid -- two points still give a slope, just a weaker one.
+#
+# Same fault system as WHITE but a different catalog and a different decade of
+# instrumentation, so agreement between the two is a check on the CATALOG
+# rather than on the tectonics. Disagreement would point at processing, not
+# physics, and that is worth knowing separately from the Salton Sea contrast.
+#
+# SPATIAL BINS: run with --bin-km 5.0 (306 active cells, 5.3 per target).
+# See configs/panel_white.yaml for why this is equalised across panels.
+data:
+  catalog_path: reference/Datasets/QTM/SanJac_catalog.csv
+  mcut: 1.3
+  aux_start: '2008-01-01'
+  train_start: '2008-01-01'
+  val_start: '2013-06-01'
+  test_start: '2014-06-01'
+  test_end: '2017-12-31'
+model:
+  d_model: 64
+  n_layers: 3
+  d_state: 24
+  n_heads: 4
+  expand: 2
+  chunk: 64
+  flow_hidden: 64
+  mix_hidden: 48
+  flow_layers: 3
+  loss_weights: [1.0, 1.0, 0.5]
+  sigma_min: [0.02, 0.01, 0.05]
+  dropout: 0.15
+  mag_dequant: 0.01
+  input_noise: 0.1
+  h_bottleneck: 0
+  h_noise: 0.3
+  spatial_density_feat: true
+  d_floor_km: 0.1
+  encoder_input: full
+train:
+  window: 1024
+  burn_in: 128
+  batch_size: 8
+  steps: 12000
+  lr: 0.0004
+  weight_decay: 0.05
+  warmup: 400
+  grad_clip: 1.0
+  seed: 1555
+  val_every: 200
+  val_events: 2048
+  val_ode_steps: 32
+  patience: 20
+  out_dir: runs/panel_qtm_sanjac
