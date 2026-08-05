@@ -87,7 +87,14 @@ def main(argv=None):
     ap.add_argument("--m-large", type=float, default=4.0)
     ap.add_argument("--horizon", type=float, default=1.0)
     ap.add_argument("--bin-km", type=float, default=2.0)
-    ap.add_argument("--concurrency", type=int, default=1)
+    ap.add_argument("--concurrency", type=int, default=1,
+                    help="parallel TRAINING jobs")
+    ap.add_argument("--score-concurrency", type=int, default=3,
+                    help="parallel SCORING jobs. Scoring alternates GPU work "
+                         "with CPU bookkeeping, so one process leaves the card "
+                         "~44%% idle; several keep it fed. ~5.5 GB each at "
+                         "max_lanes 65536")
+    ap.add_argument("--mem-per-worker", type=float, default=6.0)
     ap.add_argument("--max-windows", type=int, default=0,
                     help="dry-run only: truncate the frame to N windows")
     ap.add_argument("--dry-run", action="store_true",
@@ -114,6 +121,22 @@ def main(argv=None):
     # every other point scales its n_sims up to (invariant 1d).
     frame = sc.build_frame(base, spec, args.bin_km, out, b_mc=max(args.mc))
     frame["mc_ref"] = float(min(args.mc))
+    # Persist it. Scoring runs in SUBPROCESSES that re-read frame.json from
+    # disk, so an in-memory-only mc_ref would leave every worker with
+    # match_precision_ref=None and silently drop matched resolution -- the one
+    # invariant (1d) that makes points on this curve comparable at all.
+    _fj = json.load(open(out / "frame.json"))
+    # A dry run must NOT carry mc_ref, or the subprocess scorers will apply
+    # matched resolution and a rehearsal costs 98,155 sims per window. Scoring
+    # now happens in subprocesses that read this file, so the in-process
+    # dry-run shortcut no longer reaches them -- the flag has to live on disk.
+    want = None if args.dry_run else frame["mc_ref"]
+    if _fj.get("mc_ref") != want:
+        if want is None:
+            _fj.pop("mc_ref", None)
+        else:
+            _fj["mc_ref"] = want
+        json.dump(_fj, open(out / "frame.json", "w"))
     from dataclasses import replace as _replace
     spec = _replace(spec, b_value=frame["b_value"])
     if args.max_windows:
@@ -160,7 +183,11 @@ def main(argv=None):
         pc.dump(p[2])                        # is the real switch
         points.append(p)
 
-    todo = [p for p in points if not any((p[1].parent).glob("ckpt_step*.pt"))]
+    # A point counts as trained only when its FINAL checkpoint exists. Keying on
+    # "any ckpt_step*.pt" would treat a run killed at step 5000 of 12000 as
+    # finished and quietly score a half-trained model.
+    final_ck = f"ckpt_step{args.steps:06d}.pt"
+    todo = [p for p in points if not (p[1].parent / final_ck).exists()]
     if todo:
         sc.train_many(todo, args.steps, args.device, args.concurrency,
                       train_flags=("--keep-all-ckpts", "--no-early-stop"))
@@ -169,53 +196,55 @@ def main(argv=None):
     if args.train_only:
         return 0
 
-    # ---- score the grid ----
-    rows = []
+    # ---- stage the grid, then score it in PARALLEL ----
+    #
+    # Sequential scoring left the GPU at ~56% for what is a ~19 hour phase: each
+    # worker alternates GPU sampling with CPU-side bookkeeping, so one process
+    # cannot keep the card fed. The jobs are embarrassingly parallel (one
+    # checkpoint each), and at ~5.5 GB per worker several fit in 32 GB, so
+    # process concurrency converts that idle time directly into throughput.
+    jobs = []
     for tag, ckpt_best, _ in points:
         d = ckpt_best.parent
         have = {int(re.search(r"ckpt_step(\d+)\.pt", f.name).group(1)): f
                 for f in d.glob("ckpt_step*.pt")}
-        missing = [s for s in grid if s not in have]
+        missing = [st for st in grid if st not in have]
         if missing:
             print(f"  [{tag}] {len(missing)} of {len(grid)} grid steps were never "
                   f"saved (training stopped early?): {missing[:8]}")
-        for step in [s for s in grid if s in have]:
-            ck = have[step]
-            # score_point writes next to the checkpoint; give each its own dir so
-            # the grid does not overwrite itself.
+        for step in [st for st in grid if st in have]:
             work = d / f"score_step{step:06d}"
             work.mkdir(exist_ok=True)
-            target = work / ck.name
+            target = work / "ckpt_best.pt"
             if not target.exists():
-                target.write_bytes(ck.read_bytes())
-            # Matched resolution (invariant 1d) is mandatory for a real result and
-            # ruinous for a rehearsal: it overrode --n-sims 20 with 98,155 at
-            # mc 2.5, making the dry run cost more than the thing it rehearses.
-            # A dry run is checking that the PIPELINE runs, not measuring skill.
-            res = sc.score_point(target, frame, spec, args.n_sims, args.device,
-                                 args.sample_steps,
-                                 match_precision_ref=(None if args.dry_run
-                                                      else frame.get("mc_ref")),
-                                 max_lanes=args.max_lanes)
-            if res is None:
-                print(f"  [{tag}] step {step}: scoring returned nothing")
-                continue
-            a = res["aggregate"]
-            ll = a.get("ll_shape_per_target_event")
-            if ll is None:
-                # No target events in scope -> the shape term is undefined, not
-                # zero. Record it and move on rather than formatting None.
-                print(f"  [{tag}] step {step:6d}  ll_shape=undefined "
-                      f"({a.get('n_target_events', 0)} target events in scope)",
-                      flush=True)
-            rows.append({"tag": tag, "mc": res["mcut"], "step": step,
-                         "ll_shape_per_target_event": ll,
-                         "ll_per_target_event": a.get("ll_per_target_event"),
-                         "n_target_events": a.get("n_target_events"),
-                         "n_sims": res["n_sims"], "max_lanes": res["max_lanes"],
-                         "device": res["device"]})
-            if ll is not None:
-                print(f"  [{tag}] step {step:6d}  ll_shape={ll:+.4f}", flush=True)
+                target.write_bytes(have[step].read_bytes())
+            jobs.append((tag, step, target))
+
+    pending = [t for _, _, t in jobs
+               if not (t.parent / "target_process.json").exists()]
+    print(f"[surface] {len(jobs)} grid points, {len(pending)} still to score, "
+          f"concurrency={args.score_concurrency}")
+    if pending:
+        sc.score_many(pending, out, args.n_sims, args.sample_steps, args.device,
+                      concurrency=args.score_concurrency,
+                      mem_per_worker_gb=args.mem_per_worker,
+                      max_lanes=args.max_lanes)
+
+    rows = []
+    for tag, step, target in jobs:
+        f = target.parent / "target_process.json"
+        if not f.exists():
+            print(f"  [{tag}] step {step}: no result written")
+            continue
+        res = json.load(open(f))
+        a = res["aggregate"]
+        ll = a.get("ll_shape_per_target_event")
+        rows.append({"tag": tag, "mc": res["mcut"], "step": step,
+                     "ll_shape_per_target_event": ll,
+                     "ll_per_target_event": a.get("ll_per_target_event"),
+                     "n_target_events": a.get("n_target_events"),
+                     "n_sims": res["n_sims"], "max_lanes": res.get("max_lanes"),
+                     "device": res.get("device")})
 
     surf = out / ("surface_dryrun.json" if args.dry_run else "surface.json")
     json.dump({"arm": args.arm, "seed": args.seed, "steps": args.steps,

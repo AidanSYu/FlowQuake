@@ -1342,6 +1342,72 @@ Every increment above is 15–46x it.
    general form: **a test that the code works is not a test that the code
    computes the intended estimand.**
 
+### THE INTERIOR OPTIMUM DOES NOT SURVIVE — (mc, step) surface, 2026-08-05
+
+The adjudicator's recommended experiment ran: all four `matched_window` points
+retrained with **early stopping disabled**, every validation checkpoint kept
+(240 each), and `ll_shape` scored on a 33-point grid dense below step 500.
+132 scored points, `runs/surface_white/surface.json`.
+
+**The +0.7500 rise was an artefact of the checkpoint-selection rule.**
+
+| mc | best step | best `ll_shape` | plateau (steps >= 1000) | sd |
+|---|---|---|---|---|
+| 2.5 | 5500 | -3.8332 | -4.0427 | 0.1362 |
+| 2.0 | 9500 | -3.8624 | -4.0301 | 0.0930 |
+| 1.5 | 3500 | -4.2969 | -4.3676 | 0.0386 |
+| 1.0 | 5500 | -5.0350 | -5.1194 | 0.0396 |
+
+| step | published | argmax | plateau |
+|---|---|---|---|
+| **2.5 -> 2.0** | **+0.7500** | **-0.0292** | **+0.0126** |
+| 2.0 -> 1.5 | -0.2713 | -0.4345 | -0.3375 |
+| 1.5 -> 1.0 | -0.6677 | -0.7381 | -0.7518 |
+
+The published mc 2.5 anchor scored -4.9272 at step 200. That model's own
+optimum is -3.8332 at step 5500 -- the anchor sat **1.0940 nats below its own
+best**, mid-warmup, and was being compared against fully-trained models at every
+other mc. Removing the selection rule removes the entire rise.
+
+**Consequences, stated plainly:**
+
+1. **`P(rise > 0 AND fall < 0) = 1.0000` is DEAD.** There is no rise to
+   intersect with the fall. The intersection-union test was measuring a
+   training artefact at one end of the curve.
+2. **The shape is not an inverted U.** It is FLAT over the first half-decade
+   and then declines monotonically: **-1.077 nats total from mc 2.5 to 1.0**.
+3. **The falls got STRONGER.** 2.0 -> 1.5 was reported as not significant
+   (-0.2713, interval spanning zero) and is -0.3375 here; 1.5 -> 1.0 goes from
+   -0.6677 to -0.7518.
+4. **The surviving claim is cleaner than the one it replaces:** deepening the
+   catalog never helps this model, and below mc 2.0 it actively and
+   monotonically hurts. That is still a limits result, and it no longer depends
+   on an "optimal completeness" that does not exist.
+
+**What is NOT yet established, and must not be quoted as if it were:**
+
+* The per-step spread is treated above as if the 23 plateau checkpoints were
+  independent. **They are not** -- they come from one training run and are
+  serially correlated, so any standard error computed that way is too narrow.
+  This is invariant 1r's error in a new costume. Proper intervals need the
+  block bootstrap over WINDOWS (`pooling.block_bootstrap_slope`) applied to the
+  per-window arrays, which are committed alongside the aggregates.
+* **One seed, one fresh training run.** Not bit-comparable to the published
+  curve (the code changed); internally consistent across all four points, which
+  is the comparison that matters, but seed variation is unmeasured here and the
+  mc 2.5 plateau sd is 0.1362.
+* `argmax` over 33 noisy checkpoints is **itself a selection rule** and biases
+  the maximum upward. That is why the plateau mean is quoted as the headline
+  and both are shown.
+
+1u. **An unstored optimum is not a small error, and "it is only the endpoint"
+   is not a defence.** The confound was known, described precisely, and
+   correctly identified as unbounded -- and it still turned out to carry the
+   entire headline effect. The lesson generalises past this experiment: when a
+   selection rule depends on the axis under study, the honest move is to
+   ELIMINATE the rule and remeasure, not to bound its influence by argument.
+   Bounding it by argument is what produced +0.7500.
+
 ### `matched_n` (invariant 2) — per-point detail
 
 `matched_n` fixes the training event count at N = 520 (the count at mc 2.5) and
