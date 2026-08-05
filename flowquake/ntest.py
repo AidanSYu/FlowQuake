@@ -297,9 +297,22 @@ def simulate_windows(
     model, cat, starts, n_sims: int, device, sample_steps: int = 16,
     horizon_days: float = 30.0, max_events: int | None = None,
     compact_every: int = 64, compact_below: float = 0.5,
-    max_lanes: int = 16384,
+    max_lanes: int = 16384, seed: int | None = None,
 ):
     """Simulate MANY forecast windows in one batched autoregressive pass.
+
+    `seed` exists so that OPTIMISATIONS CAN BE PROVED HARMLESS. Production
+    scoring is deliberately left unseeded -- the estimator has real Monte-Carlo
+    spread (sd 0.036 nats at mc 1.0, invariant 1s) and pretending otherwise by
+    freezing one draw would understate it. But that also means an unseeded run
+    cannot distinguish "this refactor changed the answer" from "this is a
+    different draw", which makes every performance change unverifiable.
+
+    Setting `seed` makes a run reproducible bit-for-bit, so a refactor that
+    preserves the order of RNG consumption must reproduce the previous output
+    EXACTLY. Refactors that reorder RNG consumption (different batch shapes,
+    CUDA graph capture) legitimately will not, and have to be checked
+    distributionally instead -- see tests/test_sampler_determinism.py.
 
     `simulate_day_events` handles one window at a time, which is what the CSEP
     daily protocol needs. The scaling curve instead scores ~52 windows per
@@ -320,6 +333,15 @@ def simulate_windows(
     simulation s, matching `simulate_day_events`'s per-window contract.
     """
     starts = [float(s) for s in starts]
+    # Seed ONCE, here at the entry point, and never in the recursive calls
+    # below -- they deliberately pass no `seed` and so inherit this stream.
+    # Re-seeding per chunk would hand every chunk the SAME draws, which is not a
+    # slow bug but a silent correctness disaster: the chunks exist precisely
+    # because lanes are independent, and identical chunks would collapse the
+    # effective sample size to one chunk while every count and interval carried
+    # on as if nothing had happened.
+    if seed is not None:
+        torch.manual_seed(int(seed))
     # Hard lane budget. Peak memory scales with (windows x sims), and with
     # matched-precision n_sims that product reaches ~66k on a real sweep, which
     # drove a 48 GB machine into 34 GB of swap. Split the window list so the

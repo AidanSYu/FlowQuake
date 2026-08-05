@@ -37,3 +37,6 @@ per_event*.csv
 
 # macOS finder metadata
 .DS_Store
+
+# Dry-run rehearsals of the surface pipeline (not results)
+runs/surface_dry/

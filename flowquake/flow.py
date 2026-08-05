@@ -60,6 +60,38 @@ class CondFlow(nn.Module):
         # Near-zero initial velocity field keeps early training stable.
         nn.init.zeros_(self.net[-1].weight)
         nn.init.zeros_(self.net[-1].bias)
+        #: Set by `enable_compiled_net()`, and held inside a LIST on purpose.
+        #: `torch.compile` returns an `OptimizedModule`, which is an nn.Module, so
+        #: assigning it to an attribute makes nn.Module register it as a CHILD --
+        #: every weight then appears twice in state_dict and the checkpoint format
+        #: silently changes. Verified: plain assignment altered state_dict keys.
+        #: A plain list is not registered, so the compiled wrapper stays invisible
+        #: to serialisation.
+        self._compiled_box: list = []
+
+    def enable_compiled_net(self, mode: str = "reduce-overhead") -> bool:
+        """Opt in to a `torch.compile`d velocity network. Returns success.
+
+        OFF BY DEFAULT, and deliberately so. After the buffer/embedding rewrite
+        the remaining sampler cost is `linear` (~30%) and `silu` (~24%) -- fusion
+        targets, and on a GPU the 64 velocity evaluations per `sample_next` are
+        launch-bound rather than compute-bound, which is what "reduce-overhead"
+        (CUDA graphs) exists for. But that is a claim about a device this has not
+        been measured on, and compilation also costs seconds per distinct batch
+        shape, so enabling it blindly could easily be a net loss.
+
+        It is opt-in for a correctness reason too: unlike the buffer rewrite,
+        compilation may reassociate floating-point work, so results are NOT
+        guaranteed bit-identical. A curve must therefore be produced entirely
+        with it on or entirely off -- the same whole-curve rule invariant 1t
+        applies to device choice.
+        """
+        try:
+            self._compiled_box = [torch.compile(self.net, mode=mode, dynamic=False)]
+            return True
+        except Exception:                                        # noqa: BLE001
+            self._compiled_box = []
+            return False
 
     def velocity(self, z: torch.Tensor, t: torch.Tensor, cond: torch.Tensor) -> torch.Tensor:
         """z: (B, d); t: (B,) or scalar tensor; cond: (B, c)."""
@@ -79,15 +111,53 @@ class CondFlow(nn.Module):
 
     @torch.no_grad()
     def sample(self, cond: torch.Tensor, steps: int = 32) -> torch.Tensor:
-        """Forward RK4 integration from N(0, I). cond: (B, c) -> (B, d)."""
-        z = torch.randn(cond.shape[0], self.dim, device=cond.device, dtype=cond.dtype)
+        """Forward RK4 integration from N(0, I). cond: (B, c) -> (B, d).
+
+        Numerically identical to the obvious loop, but avoids two costs that a
+        CPU profile showed dominating the sampler (which is 98.5% of scoring):
+
+        `torch.cat` was 17.5% of runtime and `sin`/`cos` 11%. Both are pure
+        overhead here, because of two facts about this particular integration:
+
+          * the RK4 sub-step time is a SCALAR, identical for every lane, and its
+            ~3*steps distinct values are known before the loop starts -- so the
+            Fourier time embedding was being recomputed across all B lanes 4*steps
+            times to produce `temb.dim` distinct numbers;
+          * `cond` never changes during the solve -- so `cat` was re-copying the
+            widest block of the network input on all 4*steps velocity calls.
+
+        So the embedding is computed once per distinct time and broadcast, and
+        the network input is written into ONE preallocated buffer whose `cond`
+        block is filled a single time. The buffer is contiguous and row-major
+        with the same column order the `cat` produced, so `self.net` sees exactly
+        the same bytes and results stay bit-identical -- pinned by
+        tests/test_flow_sample_equivalence.py.
+        """
+        B, d = cond.shape[0], self.dim
+        te_dim, c = self.temb.dim, cond.shape[1]
+        z = torch.randn(B, d, device=cond.device, dtype=cond.dtype)
         dt = 1.0 / steps
+
+        buf = torch.empty(B, d + te_dim + c, device=cond.device, dtype=cond.dtype)
+        buf[:, d + te_dim:] = cond                    # constant for the whole solve
+
+        net = self._compiled_box[0] if self._compiled_box else self.net
+
+        def vel(zc: torch.Tensor, te: torch.Tensor) -> torch.Tensor:
+            buf[:, :d] = zc
+            buf[:, d:d + te_dim] = te                 # broadcasts (te_dim,) -> (B, te_dim)
+            return net(buf)
+
         for i in range(steps):
-            t0 = torch.tensor(i * dt, device=z.device, dtype=z.dtype)
-            k1 = self.velocity(z, t0, cond)
-            k2 = self.velocity(z + 0.5 * dt * k1, t0 + 0.5 * dt, cond)
-            k3 = self.velocity(z + 0.5 * dt * k2, t0 + 0.5 * dt, cond)
-            k4 = self.velocity(z + dt * k3, t0 + dt, cond)
+            # Scalar times -> (te_dim,) embeddings, computed once each.
+            t_a = torch.tensor(i * dt, device=z.device, dtype=z.dtype)
+            te_a = self.temb(t_a)
+            te_b = self.temb(t_a + 0.5 * dt)
+            te_c = self.temb(t_a + dt)
+            k1 = vel(z, te_a)
+            k2 = vel(z + 0.5 * dt * k1, te_b)
+            k3 = vel(z + 0.5 * dt * k2, te_b)
+            k4 = vel(z + dt * k3, te_c)
             z = z + dt / 6.0 * (k1 + 2 * k2 + 2 * k3 + k4)
         return z
 

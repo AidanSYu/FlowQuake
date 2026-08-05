@@ -263,7 +263,8 @@ def prepare_point(base_cfg: str, mc: float, arm: str, seed: int,
 
 
 def train_many(points: list[tuple[str, Path, str]], steps: int | None, device: str,
-               concurrency: int, mem_per_worker_gb: float = 3.0) -> None:
+               concurrency: int, mem_per_worker_gb: float = 3.0,
+               train_flags: tuple[str, ...] = ()) -> None:
     """Train points in parallel, one THREAD per process.
 
     Measured on an 18-core M5 Pro at production model size (0.03M params,
@@ -309,6 +310,12 @@ def train_many(points: list[tuple[str, Path, str]], steps: int | None, device: s
                    str(ckpt.parent), "--device", device]
             if steps:
                 cmd += ["--steps", str(steps)]
+            # Surface mode: keep every validation checkpoint and run the full
+            # budget. Early stopping makes the REPORTED checkpoint a function of
+            # mc, which is the axis under study -- see MOONSHOT.md on why the
+            # +0.7500 rise is currently only an upper bound.
+            if train_flags:
+                cmd += list(train_flags)
             running.append((tag, spawn(
                 cmd, env=env, stdout=fh, stderr=subprocess.STDOUT), fh))
             print(f"  [start] {tag}", flush=True)

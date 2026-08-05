@@ -89,6 +89,16 @@ def main(argv=None):
     ap.add_argument("--init-from", type=str, default=None,
                     help="warm-start model weights from a checkpoint (few-shot transfer)")
     ap.add_argument("--seed", type=int, default=None, help="override train.seed")
+    ap.add_argument("--keep-all-ckpts", action="store_true",
+                    help="save ckpt_step<N>.pt at every validation check, not "
+                         "just best/last. Needed for the (mc, step) surface: "
+                         "the published mc 2.5 anchor's true optimum was "
+                         "overwritten and can never be recovered without this")
+    ap.add_argument("--no-early-stop", action="store_true",
+                    help="ignore train.patience and run the full step budget. "
+                         "Early stopping IS the confound the surface experiment "
+                         "removes -- it makes the reported checkpoint a function "
+                         "of mc, which is the axis under study")
     args = ap.parse_args(argv)
 
     cfg = Config.load(args.config)
@@ -167,6 +177,20 @@ def main(argv=None):
             metrics_f.flush()
             torch.save({"cfg": cfg, "model": model.state_dict(), "stats": cat.stats,
                         "step": step, "val": v}, out_dir / "ckpt_last.pt")
+            if args.keep_all_ckpts:
+                # Retain EVERY validation checkpoint, not just best/last.
+                #
+                # The (mc, training-step) surface experiment exists because the
+                # published mc 2.5 anchor is the earliest checkpoint its run ever
+                # saved -- step 200, mid-warmup, with val NLL rising monotonically
+                # after. Its true optimum lies inside (0, 200) and was overwritten,
+                # so the +0.7500 rise is only an upper bound. Overwriting is the
+                # whole problem; keeping every checkpoint is the whole fix.
+                #
+                # Cheap: these models are ~90 KB, so 240 checkpoints is ~21 MB.
+                torch.save({"cfg": cfg, "model": model.state_dict(),
+                            "stats": cat.stats, "step": step, "val": v},
+                           out_dir / f"ckpt_step{step:06d}.pt")
             if v["nll"] < best_nll:
                 best_nll = v["nll"]
                 bad_checks = 0
@@ -175,7 +199,7 @@ def main(argv=None):
                 print(f"  new best val nll {best_nll:.4f}")
             else:
                 bad_checks += 1
-                if bad_checks >= tc.patience:
+                if bad_checks >= tc.patience and not args.no_early_stop:
                     print(f"early stop at step {step} (best val nll {best_nll:.4f})")
                     break
 
