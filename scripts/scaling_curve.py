@@ -65,6 +65,30 @@ PY = sys.executable
 ENV = {**os.environ, "PYTHONUNBUFFERED": "1", "PYTHONPATH": "."}
 ARMS = ("matched_window", "matched_n")
 
+#: Simulation batch size handed to `ntest.simulate_windows`.
+#:
+#: 16,384 is the value `simulate_windows` has always defaulted to, chosen for a
+#: 48 GB laptop that had once been driven into 34 GB of swap. Every point scored
+#: before 2026-08-05 used it, because this script never passed the argument at
+#: all -- the knob existed but was unreachable from the CLI.
+#:
+#: Measured on an RTX 5090 (results/gpu_max_lanes_tuning.txt), on the mc 2.5
+#: branch that carries ~69% of a sweep's cost:
+#:
+#:     16,384 -> 20.05 s/window            (1.00x, 1.4 GB)
+#:     65,536 -> 12.84 s/window            (1.56x, 5.5 GB)   <- best
+#:    262,144 -> 14.14 s/window            (1.42x, 16.3 GB)
+#:  1,048,576 -> 14.11 s/window            (1.42x, 16.3 GB)
+#:
+#: So bigger is NOT better past 65,536: throughput regresses and peak memory
+#: triples. Pass --max-lanes 65536 on CUDA.
+#:
+#: The default stays 16,384 deliberately. A device-dependent default would
+#: silently change the RNG consumption pattern -- and therefore the sampled
+#: results, within Monte-Carlo noise -- based on which machine a run happened to
+#: land on. The value used is recorded in each target_process.json instead.
+DEFAULT_MAX_LANES = 16384
+
 
 def free_gb() -> float:
     """Free + inactive physical memory, GB. Best-effort and cross-platform."""
@@ -392,8 +416,15 @@ def sims_for_matched_resolution(cfg, spec: TargetSpec, cat,
 
 def score_point(ckpt: Path, frame: dict, spec: TargetSpec, n_sims: int,
                 device: str, sample_steps: int, force: bool = False,
-                match_precision_ref: float | None = None) -> dict | None:
-    """Score a trained model on the fixed target process. Resumable."""
+                match_precision_ref: float | None = None,
+                max_lanes: int = DEFAULT_MAX_LANES) -> dict | None:
+    """Score a trained model on the fixed target process. Resumable.
+
+    `max_lanes` is the simulation batch size. It does NOT change the estimand --
+    lanes are independent -- but it DOES change results within Monte-Carlo noise,
+    because the chunk size determines how the shared RNG stream is consumed. It
+    is recorded in the output for that reason. See DEFAULT_MAX_LANES.
+    """
     import torch
     from flowquake.ntest import simulate_day_events, simulate_windows
     from flowquake.train import load_catalog_cfg, make_model
@@ -448,7 +479,8 @@ def score_point(ckpt: Path, frame: dict, spec: TargetSpec, n_sims: int,
         if model.encoder is None:
             out = simulate_windows(model, cat, ss, ns, dev,
                                    sample_steps=sample_steps,
-                                   horizon_days=spec.horizon_days)
+                                   horizon_days=spec.horizon_days,
+                                   max_lanes=max_lanes)
         else:   # h>0 carries per-lane SSM state; fall back to the per-window path
             out = [simulate_day_events(model, cat, s, ns, dev,
                                        sample_steps=sample_steps,
@@ -473,6 +505,10 @@ def score_point(ckpt: Path, frame: dict, spec: TargetSpec, n_sims: int,
     res = {"mcut": cfg.data.mcut, "train_start": cfg.data.train_start,
            "n_sims": n_sims, "tail_mode": spec.tail_mode, "b_value": spec.b_value,
            "tail_prob_target": spec.tail_prob(spec.m_target),
+           # Provenance: batch size and device change the RNG consumption
+           # pattern, so two runs differing only in these are separate draws
+           # from the estimator rather than a reproduction (invariants 1s, 1t).
+           "max_lanes": int(max_lanes), "device": str(device),
            "aggregate": aggregate(windows), "windows": windows}
     json.dump(res, open(score_path, "w"), indent=2)
     return res
@@ -481,7 +517,8 @@ def score_point(ckpt: Path, frame: dict, spec: TargetSpec, n_sims: int,
 # --------------------------------------------------------------------------
 
 def score_many(ckpts: list[Path], out: Path, n_sims: int, sample_steps: int,
-               device: str, concurrency: int, mem_per_worker_gb: float = 4.0) -> None:
+               device: str, concurrency: int, mem_per_worker_gb: float = 4.0,
+               max_lanes: int = DEFAULT_MAX_LANES) -> None:
     """Score points in parallel. Same reasoning as `train_many` — the simulator
     is an autoregressive Python loop over small tensors, so process parallelism
     beats intra-op threading."""
@@ -496,7 +533,7 @@ def score_many(ckpts: list[Path], out: Path, n_sims: int, sample_steps: int,
             fh = open(ck.parent / "score.log", "w")
             cmd = [PY, __file__, "--score-one", str(ck), "--frame", str(out / "frame.json"),
                    "--n-sims", str(n_sims), "--sample-steps", str(sample_steps),
-                   "--device", device]
+                   "--device", device, "--max-lanes", str(max_lanes)]
             running.append((ck.parent.name, spawn(
                 cmd, env=env, stdout=fh, stderr=subprocess.STDOUT), fh))
             print(f"  [start] {ck.parent.name}", flush=True)
@@ -558,6 +595,10 @@ def main(argv=None):
                     help="completeness for the one-off b estimate (default: max --mc)")
     ap.add_argument("--n-sims", type=int, default=500)
     ap.add_argument("--sample-steps", type=int, default=16)
+    ap.add_argument("--max-lanes", type=int, default=DEFAULT_MAX_LANES,
+                    help="simulation batch size (see DEFAULT_MAX_LANES). "
+                         "65536 is ~1.56x faster than the 16384 default on "
+                         "CUDA; larger is slower and uses 3x the memory")
     ap.add_argument("--steps", type=int, default=None, help="training steps override")
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--pilot", action="store_true",
@@ -576,7 +617,8 @@ def main(argv=None):
         score_point(Path(args.score_one), fr, sp, args.n_sims, args.device,
                     args.sample_steps,
                     match_precision_ref=(fr.get("mc_ref") if args.match_precision
-                                         else None))
+                                         else None),
+                    max_lanes=args.max_lanes)
         return
 
     if not args.base or not args.out:
@@ -682,7 +724,8 @@ def main(argv=None):
     if to_score:
         score_many(to_score, out, args.n_sims, args.sample_steps,
                    args.device, args.concurrency,
-                   mem_per_worker_gb=args.mem_per_worker)
+                   mem_per_worker_gb=args.mem_per_worker,
+                   max_lanes=args.max_lanes)
 
     rows = []
     for r in plan:
