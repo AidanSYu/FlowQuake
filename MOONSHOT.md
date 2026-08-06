@@ -6,6 +6,93 @@ but is forbidden below, the decision is wrong.
 
 ---
 
+## THE ANSWER, 2026-08-05
+
+> **A decade of magnitude below M3 is worth +0.22 [+0.02, +0.40] nats to a
+> fitted ETAS and -0.71 [-0.95, -0.46] nats to a flexible learned model, scored
+> on identical target events. They differ in SIGN with probability 0.985.**
+
+Measured on a bit-identical frame (1,673 windows, 123 scored M>=3 targets, same
+grid, verified by hash), the corrected neural curve -- the checkpoint-surface
+plateau, not the early-stopping artefact -- against the ETAS control:
+
+| mc | FlowQuake | ETAS (uniform) | margin |
+|---|---|---|---|
+| 2.5 | -4.0427 | -5.6003 | **+1.5576** |
+| 2.0 | -4.0301 | -5.4308 | +1.4007 |
+| 1.5 | -4.3676 | -5.3370 | +0.9694 |
+| 1.0 | -5.1194 | -5.2712 | **+0.1518** |
+
+| | nats/decade | 95% CI | total 2.5 -> 1.0 |
+|---|---|---|---|
+| ETAS | **+0.2162** | [+0.0209, +0.3973] | +0.3291 [+0.0573, +0.5799] |
+| FlowQuake | **-0.7135** | [-0.9512, -0.4555] | -1.0767 [-1.4264, -0.6695] |
+| difference | **+0.9297** | [+0.6449, +1.1879] | |
+
+**What this settles, and why it is neither branch of the original either/or.**
+The moonshot was framed as "still rising -> capability claim; saturates ->
+limits claim". The actual answer is a THIRD thing: the two model classes
+disagree about the sign. The information is demonstrably present -- ETAS
+converts catalog depth into forecast skill, significantly, on these very
+targets. A high-capacity density model does not merely fail to convert it; it
+gets worse, and it does so about 3.3x faster than ETAS improves.
+
+So **the quantity this experiment bounds is not the information content of
+catalogs. It is the ability of a model class to use it.** Any "information
+limit of catalog-based forecasting" measured with a learned model alone would
+have reported a limit that belongs to the model, and would have had the wrong
+sign.
+
+**The crossover is the operationally interesting number.** FlowQuake beats ETAS
+by 1.5576 nats at mc 2.5 and by 0.1518 at mc 1.0: the entire advantage of the
+learned model is spent within 1.5 decades of catalog depth. Linear extrapolation
+puts the crossing just below mc 1.0 -- i.e. on a sufficiently deep catalog the
+physics baseline would win outright. That is a falsifiable prediction and it is
+the natural next experiment.
+
+**The mechanism, recomputed -- because the published one was the SAME artefact.**
+The old story was "`n_eff_cells` falls 167.8 -> 56.0 -> 32.4, the model sharpens
+5x while accuracy peaks: deeper catalogs make it more confident without making
+it more correct." That is **wrong, and wrong for the same reason the +0.7500
+was**: 167.8 was the barely-trained mc 2.5 checkpoint being diffuse, so the
+apparent sharpening was the model finishing training, not responding to catalog
+depth. On the corrected plateau checkpoints the sign reverses:
+
+| mc | FlowQuake `n_eff` | ETAS `n_eff` |
+|---|---|---|
+| 2.5 | 26.2 | 75.2 |
+| 2.0 | 34.7 | 49.0 |
+| 1.5 | 31.3 | 32.6 |
+| 1.0 | 35.2 | 31.8 |
+
+FlowQuake gets **0.75x sharper, i.e. slightly BROADER** (26.2 -> 35.2), while
+ETAS sharpens **2.37x** (75.2 -> 31.8). So the real mechanism is not
+overconfidence. **The learned model's spatial resolution is saturated**: adding
+smaller earthquakes does not sharpen its forecast at all, while it does move it
+in a direction the likelihood dislikes. ETAS meanwhile converts the same extra
+events into a forecast that is both sharper AND better -- which is precisely why
+the two curves separate.
+
+1w. **When a confound is removed, EVERY number derived from the confounded run
+   is suspect, not just the headline.** The `n_eff` mechanism story survived the
+   correction unexamined and was written into this file, minutes after the
+   headline it was supporting had been overturned, because it "already made
+   sense". It was caught only because the regenerated figure visibly
+   contradicted its own caption. A supporting number that still fits the old
+   narrative is the easiest thing in the world to carry forward.
+
+**Scope, stated once and not softened elsewhere.** One region (WHITE / San
+Jacinto), one target magnitude (M>=3), one horizon (1 day), one architecture,
+ONE SEED. G1 already established that the ETAS slope is heterogeneous across
+regions (I^2 ~ 70%, Q p = 0.016; 2 of 4 regions significant), so the +0.22 is
+this region's number and not a universal constant. The sign DIVERGENCE is the
+claim that travels; its magnitude is regional.
+
+Artifacts: `runs/surface_white/moonshot_answer.json`,
+`runs/surface_white/intervals.json`, `scripts/moonshot_answer.py`.
+
+---
+
 ## The claim we are trying to earn the right to make
 
 > **Each decade of magnitude below M4 contributes X ± Y nats of forecast skill
