@@ -1400,6 +1400,40 @@ other mc. Removing the selection rule removes the entire rise.
   the maximum upward. That is why the plateau mean is quoted as the headline
   and both are shown.
 
+**HONEST INTERVALS (two-axis circular block bootstrap, 6000 reps).** The
+standard errors above treat 23 plateau checkpoints as independent; they are
+serially correlated, so those were too narrow -- by **10x**, as it turned out.
+`scripts/surface_intervals.py` resamples BOTH axes: windows in contiguous
+30-day blocks (targets arrive in sequences) and checkpoints in blocks of 3
+(adjacent checkpoints share almost all their weights), paired across every mc so
+each increment stays a within-window, within-stage contrast.
+
+| step | increment | 95% CI | verdict |
+|---|---|---|---|
+| 2.5 -> 2.0 | +0.0126 | [-0.2814, +0.3707] | nothing |
+| 2.0 -> 1.5 | -0.3375 | [-0.6942, -0.0302] | marginal |
+| 1.5 -> 1.0 | -0.7518 | [-1.0557, -0.4402] | solid |
+| **TOTAL 2.5 -> 1.0** | **-1.0767** | **[-1.4544, -0.6613]** | **P(decline) = 0.9997** |
+
+**P(rise > 0 AND fall < 0) = 0.5337**, against the published 1.0000. But note
+also **P(monotone non-increasing) = 0.4580** -- also a coin flip. With 123 target
+events this dataset CANNOT distinguish "flat then falling" from "slight rise
+then falling". Neither shape is established, and the claim must not be restated
+as monotonicity just because the inverted U died.
+
+**What IS established is the endpoint comparison**, and it should carry the
+paper: going from mc 2.5 to mc 1.0 costs **1.08 nats [0.66, 1.45]** of forecast
+skill per target event.
+
+1v. **The binding constraint is target events, not compute.** Variance
+   decomposition of the total decline: window/sequence sampling sd = 0.1956,
+   checkpoint sd = 0.0327 -- windows are **95% of the variance**. More training
+   seeds, more checkpoints and more GPU time all attack the 2.7% component. Only
+   more target events narrow this interval, and those come from longer catalogs
+   or more regions, not from a bigger machine. Worth checking BEFORE buying
+   compute to sharpen a result: a seed sweep here would have cost ~$20 and moved
+   the interval by almost nothing.
+
 1u. **An unstored optimum is not a small error, and "it is only the endpoint"
    is not a defence.** The confound was known, described precisely, and
    correctly identified as unbounded -- and it still turned out to carry the
