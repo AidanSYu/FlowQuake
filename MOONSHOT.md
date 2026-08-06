@@ -29,6 +29,13 @@ plateau, not the early-stopping artefact -- against the ETAS control:
 | FlowQuake | **-0.7135** | [-0.9512, -0.4555] | -1.0767 [-1.4264, -0.6695] |
 | difference | **+0.9297** | [+0.6449, +1.1879] | |
 
+**The information channel is demonstrated, not assumed (invariant 1y).** A 2x2
+cross-over of ETAS parameters against conditioning history shows the entire
++0.22/decade is the HISTORY channel: +0.3589 [+0.1960, +0.5118] from deepening
+the conditioning history alone, against +0.0040 [-0.1536, +0.1596] from
+refitting parameters on 20x more events. So "the information is present" is a
+measurement, not an inference from a fitted model's improvement.
+
 **What this settles, and why it is neither branch of the original either/or.**
 The moonshot was framed as "still rising -> capability claim; saturates ->
 limits claim". The actual answer is a THIRD thing: the two model classes
@@ -72,6 +79,45 @@ smaller earthquakes does not sharpen its forecast at all, while it does move it
 in a direction the likelihood dislikes. ETAS meanwhile converts the same extra
 events into a forecast that is both sharper AND better -- which is precisely why
 the two curves separate.
+
+1y. **RESOLVED: the ETAS gain is INFORMATION, not estimation.** The 2x2
+   cross-over specified in 1x was run (`scripts/etas_crossover.py`,
+   `runs/panel_white/etas_crossover_uniform.json`). Parameters theta and
+   conditioning history H are separate arguments to `etas_rate_field`, so they
+   cross cleanly with every fit using its full catalog:
+
+   | | H @ mc 2.5 | H @ mc 1.0 |
+   |---|---|---|
+   | theta @ 2.5 | -5.6034 | **-5.2445** |
+   | theta @ 1.0 | **-5.5994** | -5.2779 |
+
+   | channel | gain | 95% CI |
+   |---|---|---|
+   | full (both deepened) | +0.3255 | [+0.0495, +0.5797] |
+   | **INFORMATION (H only)** | **+0.3589** | **[+0.1960, +0.5118]** |
+   | **ESTIMATION (theta only)** | **+0.0040** | [-0.1536, +0.1596] |
+   | information - estimation | +0.3549 | [+0.1680, +0.5100], P = 0.9998 |
+
+   **All of it is the history channel.** Refitting on 20x more events buys
+   +0.004 nats; conditioning on the deeper history buys +0.359. The
+   identifiability worry of 1j and 1x was legitimate and is now answered: ETAS's
+   gain is not an artefact of being better-estimated at low mc.
+
+   Internal check: the full-gain cell is +0.3255 over 1.5 decades = +0.217 per
+   decade, reproducing the independently computed +0.2162 headline slope.
+
+   A detail worth keeping rather than smoothing over: theta@1.0 with deep history
+   (-5.2779) is slightly WORSE than theta@2.5 with the same history (-5.2445).
+   The parameters fitted on the deeper catalog are marginally worse forecasters,
+   which is why the estimation channel is flat rather than merely small.
+
+   **This sharpens the moonshot claim rather than merely defending it.** The
+   information in small earthquakes is now demonstrated directly, through a
+   channel that involves no refitting at all: hand the SAME model deeper
+   conditioning history and it forecasts better by +0.36 nats. FlowQuake sees
+   that identical history and gets 0.71 nats/decade WORSE. The contrast is no
+   longer "two models disagree about the sign"; it is **"the same additional
+   information helps a structured model and harms a flexible one."**
 
 1x. **The ETAS baseline is weakly identified, and the headline sentence rests
    on it.** The moonshot says "the information is demonstrably present -- ETAS
