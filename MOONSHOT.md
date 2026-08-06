@@ -111,6 +111,34 @@ the two curves separate.
    The parameters fitted on the deeper catalog are marginally worse forecasters,
    which is why the estimation channel is flat rather than merely small.
 
+   **Replicated on the smoothed background** (`etas_crossover_smoothed.json`),
+   which matters because the uniform background is the weaker of the two ETAS
+   controls -- the smoothed one is worth ~338 nats on this panel, so a
+   decomposition that held only for uniform would be a decomposition of a
+   handicapped baseline:
+
+   | channel | uniform | smoothed |
+   |---|---|---|
+   | full (both deepened) | +0.3255 | +0.3833 |
+   | **INFORMATION (H only)** | **+0.3589** | **+0.4282** [+0.2458, +0.6119] |
+   | **ESTIMATION (theta only)** | +0.0040 | **-0.2822** [-0.4141, -0.1385] |
+   | information - estimation | +0.3549, P = 0.9998 | +0.7104, P = 1.0000 |
+
+   The conclusion survives and hardens: on the better background the estimation
+   channel is not merely flat but **significantly negative**. Parameters fitted
+   on the 10,601-event catalog, applied to a shallow history, forecast 0.28 nats
+   WORSE than parameters fitted on 520 events. So the sign of the estimation
+   channel is background-dependent (+0.004 vs -0.282) while its usefulness is
+   not: under neither background does refitting on 20x more events buy anything.
+   Every nat ETAS gains from a deeper catalog arrives through the history.
+
+   State the asymmetry plainly, because it is the one thing a referee should
+   press on: the two backgrounds disagree about estimation by 0.29 nats, which
+   is larger than the uniform estimation channel itself. What is stable across
+   them is the INFORMATION channel (+0.359 vs +0.428, overlapping intervals) and
+   the ordering. The decomposition is robust; the estimation point estimate is
+   not, and is not claimed to be.
+
    **This sharpens the moonshot claim rather than merely defending it.** The
    information in small earthquakes is now demonstrated directly, through a
    channel that involves no refitting at all: hand the SAME model deeper
@@ -1272,6 +1300,23 @@ moonshot.
 Same config, same data, same 12,000-step budget, **3.35x the parameters**
 (15,432 → 51,752: `d_model` 64→128, `d_state` 24→48, `flow_hidden` 64→128,
 `mix_hidden` 48→96). Scored on the same frame:
+
+> **Correction (2026-08-06): two of those four fields did nothing.** This panel
+> runs `h_bottleneck: 0`, and `FlowQuakeTPP` builds its `SSMEncoder` only in the
+> `h_bottleneck > 0` branch — so at this setting there is **no encoder**, and
+> `d_model` and `d_state` are inert. Measured one field at a time from
+> `configs/panel_white.yaml`: `d_model` 64→128 **+0 parameters**, `d_state`
+> 24→48 **+0**, `flow_hidden` 64→128 **+27,392**, `mix_hidden` 48→96 **+8,928**
+> (15,428 → 51,748 by the current builder; the 4-parameter offset from the
+> published counts is a head-sizing detail and changes nothing).
+>
+> The parameter counts, the 3.35x, and the conclusion are all unaffected — but
+> the *scope* is narrower than the wording implies. This probe varied **head and
+> mixture capacity**, not sequence-encoder capacity, and encoder width was never
+> on trial. Widening the encoder requires `h_bottleneck > 0`, which changes the
+> architecture class (it is exactly what makes memorization structurally
+> impossible, §4.3) and would confound capacity with the whole-catalog channel.
+> Read this section as "head capacity is not what binds."
 
 | | shape | total | corr | share | n_eff_cells |
 |---|---|---|---|---|---|

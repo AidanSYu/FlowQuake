@@ -1,0 +1,98 @@
+# WHITE at 2x capacity -- the capacity control, run under the SURFACE protocol.
+#
+# WHY THIS FILE EXISTS. MOONSHOT.md's G2 probe already argued that "the model is
+# too small" does not explain the deep-catalog collapse. But that probe reported
+# ONE checkpoint per model, chosen by early stopping on validation -- and its own
+# headline sentence is "the 2x model's best val arrives at step 1,400 instead of
+# 8,200". That is a SELECTION statement, and the selection rule is exactly what
+# the surface protocol exists to remove. A referee is entitled to reply that the
+# 2x model was simply stopped at a bad place. Re-run under the surface protocol
+# (early stopping off, every checkpoint kept and scored) the objection has no
+# purchase: the comparison is plateau against plateau, not pick against pick.
+#
+# THE CAPACITY STEP IS THE PUBLISHED ONE, UNCHANGED. d_model 64->128,
+# d_state 24->48, flow_hidden 64->128, mix_hidden 48->96 -- the same four fields
+# G2 moved, 15,428 -> 51,748 parameters (3.35x). Reusing it exactly is the point:
+# the new number then speaks to the old claim rather than replacing it with a
+# different experiment. n_layers and flow_layers are deliberately NOT touched,
+# because G2 did not touch them and depth is a different axis from width.
+#
+# BUT TWO OF THOSE FOUR FIELDS ARE INERT, AND MOONSHOT.md DOES NOT SAY SO.
+# `h_bottleneck: 0` means FlowQuakeTPP builds NO encoder at all (model.py: the
+# SSMEncoder is constructed only in the `h_bottleneck > 0` branch), so d_model
+# and d_state -- both encoder-only arguments -- change nothing. Measured:
+#
+#     d_model  64->128   +0 params
+#     d_state  24->48    +0 params
+#     flow_hidden 64->128   +27,392
+#     mix_hidden  48->96     +8,928
+#
+# The published 3.35x is real and the arithmetic is right, but it came entirely
+# from the FLOW HEADS AND MIXTURE, not from the sequence encoder. So G2's finding
+# is narrower than its wording: it is "head capacity is not what binds", and the
+# encoder width was never on trial. They are kept here at 128/48 anyway, so this
+# curve is bit-comparable to the published probe rather than quietly a different
+# model -- but the honest reading of both is head capacity. Widening the encoder
+# would require h_bottleneck > 0, which changes the architecture CLASS (it is
+# what makes memorization structurally impossible) and would confound capacity
+# with the whole-catalog channel. That is a separate experiment, not this one.
+#
+# WHAT IT IS COMPARED AGAINST. runs/surface_white at 1x, on the bit-identical
+# frame -- copy runs/surface_white/frame.json into the 2x panel directory BEFORE
+# launching so build_frame loads rather than rebuilds it (invariant 1s). Both
+# curves must see the same 1,673 windows, 132 target events, mc_ref 1.0,
+# bin_km 2.0, b=1.0094. Verify the obs hash matches before trusting any contrast.
+#
+# GRID IS THE TWO ENDPOINTS ONLY, {2.5, 1.0}. The endpoint contrast is what the
+# moonshot answer rests on (the interior shape does not survive -- invariant 1u),
+# so the interior points would buy nothing this claim needs and cost 2/3 of the
+# compute. Stated as scope, not hidden: this control bounds the per-decade SLOPE
+# at 2x capacity, not the shape of the 2x curve.
+#
+# INVARIANT 1 IS NOT VIOLATED. "Sizing per panel is legal; sizing per curve POINT
+# is not." Capacity is constant across both mc values WITHIN this curve. The
+# comparison is between two curves, each internally uniform -- which is the only
+# way a capacity control can be written at all.
+data:
+  catalog_path: reference/Datasets/WHITE/WHITE_catalog.csv
+  mcut: 1.0
+  aux_start: '2008-01-01'
+  train_start: '2008-01-01'
+  val_start: '2015-01-01'
+  test_start: '2016-06-01'
+  test_end: '2020-12-31'
+model:
+  d_model: 128
+  n_layers: 3
+  d_state: 48
+  n_heads: 4
+  expand: 2
+  chunk: 64
+  flow_hidden: 128
+  mix_hidden: 96
+  flow_layers: 3
+  loss_weights: [1.0, 1.0, 0.5]
+  sigma_min: [0.02, 0.01, 0.05]
+  dropout: 0.15
+  mag_dequant: 0.01
+  input_noise: 0.1
+  h_bottleneck: 0
+  h_noise: 0.3
+  spatial_density_feat: true
+  d_floor_km: 0.1
+  encoder_input: full
+train:
+  window: 1024
+  burn_in: 128
+  batch_size: 8
+  steps: 12000
+  lr: 0.0004
+  weight_decay: 0.05
+  warmup: 400
+  grad_clip: 1.0
+  seed: 1555
+  val_every: 200
+  val_events: 2048
+  val_ode_steps: 32
+  patience: 20
+  out_dir: runs/panel_white_2x

@@ -79,6 +79,12 @@ def main(argv=None):
     ap.add_argument("--panel", default="runs/panel_white")
     ap.add_argument("--background", default="uniform")
     ap.add_argument("--n-boot", type=int, default=6000)
+    ap.add_argument("--dump-draws", default=None,
+                    help="npz path for the raw bootstrap slope draws. Pooling "
+                         "across regions needs these, not the summaries: the "
+                         "two slopes share a window draw within a region, so "
+                         "their DIFFERENCE is paired and its se cannot be "
+                         "recovered from the two marginal ses.")
     args = ap.parse_args(argv)
 
     neural, tgt, steps = load_neural(args.surface)
@@ -145,6 +151,17 @@ def main(argv=None):
                "n_targets": int(tgt.sum())},
               open(f"{args.surface}/moonshot_answer.json", "w"), indent=2)
     print(f"\nwrote {args.surface}/moonshot_answer.json")
+
+    if args.dump_draws:
+        # mcs is stored so the pooler can report the decade SPAN each slope was
+        # extrapolated over -- WHITE spans 1.5 decades and Salton Sea 0.8, and a
+        # per-decade number read off a shorter lever arm is the less certain of
+        # the two even when its interval looks similar.
+        np.savez(args.dump_draws, slope_neural=sl_n, slope_etas=sl_e,
+                 mcs=np.asarray(mcs, dtype=float),
+                 neural=n0, etas=e0,
+                 n_windows=np.int64(n_win), n_targets=np.int64(tgt.sum()))
+        print(f"wrote {args.dump_draws} ({args.n_boot} paired draws)")
     return 0
 
 
