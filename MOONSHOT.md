@@ -124,33 +124,52 @@ the two curves separate.
    The parameters fitted on the deeper catalog are marginally worse forecasters,
    which is why the estimation channel is flat rather than merely small.
 
-   **Replicated on the smoothed background** (`etas_crossover_smoothed.json`),
-   which matters because the uniform background is the weaker of the two ETAS
-   controls -- the smoothed one is worth ~338 nats on this panel, so a
-   decomposition that held only for uniform would be a decomposition of a
-   handicapped baseline:
+   **Run across two regions and two backgrounds, the decomposition replicates
+   in three cells of four and FAILS in the fourth.** This is reported first
+   rather than buried, because the failure is the informative part.
 
-   | channel | uniform | smoothed |
-   |---|---|---|
-   | full (both deepened) | +0.3255 | +0.3833 |
-   | **INFORMATION (H only)** | **+0.3589** | **+0.4282** [+0.2458, +0.6119] |
-   | **ESTIMATION (theta only)** | +0.0040 | **-0.2822** [-0.4141, -0.1385] |
-   | information - estimation | +0.3549, P = 0.9998 | +0.7104, P = 1.0000 |
+   | region | background | FULL | INFORMATION | ESTIMATION | P(info>est) |
+   |---|---|---|---|---|---|
+   | WHITE | uniform | +0.3255 | +0.3589 | +0.0040 | 0.9998 |
+   | WHITE | smoothed | +0.3833 | +0.4282 | -0.2822 | 1.0000 |
+   | Salton Sea | uniform | +0.3673 | +0.3993 | -0.0137 | 0.9958 |
+   | **Salton Sea** | **smoothed** | **+0.3573** | **+0.2285** | **+0.2462** | **0.4487** |
 
-   The conclusion survives and hardens: on the better background the estimation
-   channel is not merely flat but **significantly negative**. Parameters fitted
-   on the 10,601-event catalog, applied to a shallow history, forecast 0.28 nats
-   WORSE than parameters fitted on 520 events. So the sign of the estimation
-   channel is background-dependent (+0.004 vs -0.282) while its usefulness is
-   not: under neither background does refitting on 20x more events buy anything.
-   Every nat ETAS gains from a deeper catalog arrives through the history.
+   Read the columns, not the rows. The **FULL gain is remarkably stable** --
+   +0.326, +0.383, +0.367, +0.357, a spread of 0.058 nats across two tectonic
+   settings and two background models. The **INFORMATION channel is positive in
+   all four** (+0.229 to +0.428). The **ESTIMATION channel is not stable at all**:
+   +0.004, -0.282, -0.014, +0.246. It changes sign with the background, and the
+   two extremes are both *smoothed* backgrounds.
 
-   State the asymmetry plainly, because it is the one thing a referee should
-   press on: the two backgrounds disagree about estimation by 0.29 nats, which
-   is larger than the uniform estimation channel itself. What is stable across
-   them is the INFORMATION channel (+0.359 vs +0.428, overlapping intervals) and
-   the ordering. The decomposition is robust; the estimation point estimate is
-   not, and is not claimed to be.
+   That pattern indicts the 2x2 design, not the seismology. `fit_etas_em`
+   returns `(P, bg)` and the 2x2 moves them together, so whatever the background
+   contributes is charged to "estimation". For a **uniform** background that is
+   nearly harmless -- `bg` is one fitted scalar. For a **smoothed** background
+   `bg` is a kernel density of the training catalog, so a deeper catalog buys a
+   better-resolved map of *where* earthquakes occur. That is spatial
+   information, and the 2x2 scores it as parameter estimation. It also cuts the
+   other way: pairing a background fitted at mc 1.0 with a history at mc 2.5
+   expects activity the sparse history never supplies, which is a mismatch
+   penalty rather than an estimate of anything -- the likeliest reading of
+   WHITE's -0.2822.
+
+   So the honest statement at the 2x2 level is narrower than "the gain is
+   information":
+
+   - the total gain from a deeper catalog is stable and real;
+   - deepening the **conditioning history alone**, with parameters and
+     background both held at mc_hi, improves ETAS in **every** region and
+     background tested -- this cell is clean, because nothing is refitted and
+     no mismatch is introduced;
+   - the residual split between "parameter estimation" and "background field"
+     is **not identified by the 2x2**, and the Salton Sea smoothed cell is the
+     proof.
+
+   `--split-background` unties `bg` from `P` to resolve exactly this
+   (`etas_crossover_smoothed_splitbg.json`). Until that is read, the moonshot's
+   central sentence rests on the information cell above, which is the one that
+   replicates 4/4 -- not on the estimation cell, which does not.
 
    **This sharpens the moonshot claim rather than merely defending it.** The
    information in small earthquakes is now demonstrated directly, through a

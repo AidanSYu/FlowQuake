@@ -61,6 +61,13 @@ def main(argv=None):
     ap.add_argument("--mc-hi", type=float, default=2.5)
     ap.add_argument("--mc-lo", type=float, default=1.0)
     ap.add_argument("--background", default="uniform")
+    ap.add_argument("--split-background", action="store_true",
+                    help="untie the background field from the parameters, "
+                         "giving a 3-way information/estimation/background "
+                         "split. Only meaningful for --background smoothed: "
+                         "the uniform background carries no catalog "
+                         "information, so its bg cell is a no-op by "
+                         "construction.")
     ap.add_argument("--n-boot", type=int, default=4000)
     args = ap.parse_args(argv)
 
@@ -93,34 +100,59 @@ def main(argv=None):
         print(f"[fit ] mc {mc:g}: {int(sel.sum()):,} events, {time.time()-a:.0f}s, "
               f"n={branching_ratio(P):.3f} K={P.K:.4f} a={P.a:.3f}", flush=True)
 
-    # --- score the 2x2 --------------------------------------------------------
+    # --- score the cells ------------------------------------------------------
+    # A cell is (parameters, background field, conditioning history), each at
+    # its own mc. The 2x2 ties the first two together because they are fitted
+    # together; --split-background unties them, for the reason below.
+    def score_cell(mc_p, mc_bg, mc_h):
+        P = fits[mc_p][0]
+        bg = fits[mc_bg][1]
+        h = mm >= mc_h                      # conditioning history
+        # The tail weight converts "rate of events >= mc_h" into "rate of
+        # events >= m_target", so it follows the HISTORY threshold, which is
+        # what the intensity actually counts -- not the fitted theta.
+        sp = __import__("dataclasses").replace(spec, mc=float(mc_h))
+        w_tail = sp.tail_prob(sp.m_target) if sp.tail_mode == "fixed" else 1.0
+        rows = []
+        a = time.time()
+        for w in fr["windows"]:
+            lam = etas_rate_field(P, bg, tt[h], xx[h], yy[h], mm[h], grid,
+                                  float(w["start_days"]), sp.horizon_days,
+                                  tail_weight=w_tail)
+            obs = np.array(w["obs"], dtype=np.float64).reshape(-1, 4)
+            rows.append(score_window(None, obs, grid, sp, active=act,
+                                     lam_field=lam))
+        tot = sum(r["n_target_obs"] for r in rows)
+        print(f"[cell] P@{mc_p:g} bg@{mc_bg:g} history@{mc_h:g}: "
+              f"{sum(r['ll_shape'] for r in rows) / tot:+.4f} "
+              f"({time.time()-a:.0f}s)", flush=True)
+        return rows
+
+    hi, lo = args.mc_hi, args.mc_lo
     cells = {}
-    for mc_th in (args.mc_hi, args.mc_lo):
-        for mc_h in (args.mc_hi, args.mc_lo):
-            P, bg = fits[mc_th]
-            h = mm >= mc_h                      # conditioning history
-            # The tail weight converts "rate of events >= mc_h" into "rate of
-            # events >= m_target", so it follows the HISTORY threshold, which is
-            # what the intensity actually counts -- not the fitted theta.
-            sp = __import__("dataclasses").replace(spec, mc=float(mc_h))
-            w_tail = sp.tail_prob(sp.m_target) if sp.tail_mode == "fixed" else 1.0
-            rows = []
-            a = time.time()
-            for w in fr["windows"]:
-                lam = etas_rate_field(P, bg, tt[h], xx[h], yy[h], mm[h], grid,
-                                      float(w["start_days"]), sp.horizon_days,
-                                      tail_weight=w_tail)
-                obs = np.array(w["obs"], dtype=np.float64).reshape(-1, 4)
-                rows.append(score_window(None, obs, grid, sp, active=act,
-                                         lam_field=lam))
-            cells[(mc_th, mc_h)] = rows
-            tot = sum(r["n_target_obs"] for r in rows)
-            agg = sum(r["ll_shape"] for r in rows) / tot
-            print(f"[cell] theta@{mc_th:g} history@{mc_h:g}: {agg:+.4f} "
-                  f"({time.time()-a:.0f}s)", flush=True)
+    if args.split_background:
+        # WHY THIS MODE EXISTS. Run across two regions and two backgrounds, the
+        # FULL gain is stable (+0.326 to +0.383) but the estimation channel
+        # swings from -0.282 to +0.246, and both extremes are SMOOTHED
+        # backgrounds. That is a clue about the design, not about seismology:
+        # `fit_etas_em` returns (P, bg) and the 2x2 moves them together, so for
+        # a smoothed background the "estimation" channel silently carries the
+        # BACKGROUND FIELD -- a kernel density of the training catalog, which a
+        # deeper catalog resolves better. Spatial information about where
+        # earthquakes occur is thus scored as if it were parameter estimation.
+        # Untying bg from P separates them.
+        specs = [(hi, hi, hi),      # baseline
+                 (hi, hi, lo),      # + deeper history        = INFORMATION
+                 (lo, hi, hi),      # + refitted parameters   = ESTIMATION
+                 (hi, lo, hi),      # + better background     = BACKGROUND
+                 (lo, lo, lo)]      # everything deepened     = FULL
+    else:
+        specs = [(a_, a_, b_) for a_ in (hi, lo) for b_ in (hi, lo)]
+    for s in specs:
+        cells[s] = score_cell(*s)
 
     # --- decomposition, with a paired block bootstrap over windows -----------
-    tgt = np.array([r["n_target_obs"] for r in cells[(args.mc_hi, args.mc_hi)]],
+    tgt = np.array([r["n_target_obs"] for r in cells[specs[0]]],
                    dtype=float)
     S = {k: np.array([r["ll_shape"] for r in v], dtype=float)
          for k, v in cells.items()}
@@ -142,29 +174,51 @@ def main(argv=None):
         v = np.array([fn(d) for d in draws])
         return np.percentile(v, 2.5), np.percentile(v, 97.5), float(np.mean(v > 0))
 
-    hi, lo = args.mc_hi, args.mc_lo
-    base = pt[(hi, hi)]
-    full = pt[(lo, lo)] - base
-    info = pt[(hi, lo)] - base          # history deepened, theta held
-    est = pt[(lo, hi)] - base           # theta improved, history held
+    BASE = specs[0]
+    base = pt[BASE]
+    # Keys are (parameters, background, history) in BOTH modes, so the
+    # information cell -- everything held at mc_hi except the history -- is
+    # identically defined either way and the two modes stay comparable. Only
+    # the estimation cell differs: tied to the background in the 2x2, untied
+    # when it is split out.
+    named = [("FULL gain (all at mc %g)" % lo, specs[-1]),
+             ("  INFORMATION (history only)", (hi, hi, lo))]
+    if args.split_background:
+        named += [("  ESTIMATION (parameters only)", (lo, hi, hi)),
+                  ("  BACKGROUND (bg field only)", (hi, lo, hi))]
+    else:
+        named += [("  ESTIMATION (theta, bg tied)", (lo, lo, hi))]
+
     print(f"\n{'':<34}{'delta':>10}{'95% CI':>24}")
-    for nm, val, fn in (
-        ("FULL gain (theta+H at mc %g)" % lo, full,
-         lambda d: d[(lo, lo)] - d[(hi, hi)]),
-        ("  INFORMATION (H only)", info, lambda d: d[(hi, lo)] - d[(hi, hi)]),
-        ("  ESTIMATION (theta only)", est, lambda d: d[(lo, hi)] - d[(hi, hi)]),
-    ):
-        l, h_, _ = ci(fn)
-        print(f"{nm:<34}{val:>10.4f}{f'[{l:+.4f}, {h_:+.4f}]':>24}")
-    l, h_, p = ci(lambda d: (d[(hi, lo)] - d[(hi, hi)]) - (d[(lo, hi)] - d[(hi, hi)]))
+    vals = {}
+    for nm, key in named:
+        vals[nm.strip()] = pt[key] - base
+        l, h_, _ = ci(lambda d, k=key: d[k] - d[BASE])
+        print(f"{nm:<34}{pt[key]-base:>10.4f}{f'[{l:+.4f}, {h_:+.4f}]':>24}")
+
+    k_info = (hi, hi, lo)
+    k_est = (lo, hi, hi) if args.split_background else (lo, lo, hi)
+    info, est = pt[k_info] - base, pt[k_est] - base
+    l, h_, p = ci(lambda d: d[k_info] - d[k_est])
     print(f"{'  INFORMATION - ESTIMATION':<34}{info-est:>10.4f}"
           f"{f'[{l:+.4f}, {h_:+.4f}]':>24}   P(info>est) = {p:.4f}")
 
-    out = f"{args.panel}/etas_crossover_{args.background}.json"
-    json.dump({"mc_hi": hi, "mc_lo": lo, "background": args.background,
-               "cells": {f"theta{a_}_hist{b_}": pt[(a_, b_)] for a_, b_ in pt},
-               "full": full, "information": info, "estimation": est},
-              open(out, "w"), indent=2)
+    payload = {"mc_hi": hi, "mc_lo": lo, "background": args.background,
+               "split_background": bool(args.split_background),
+               "cells": {"_".join(f"{x:g}" for x in k): v for k, v in pt.items()},
+               "full": pt[specs[-1]] - base, "information": info,
+               "estimation": est}
+    if args.split_background:
+        k_bg = (hi, lo, hi)
+        payload["background_field"] = pt[k_bg] - base
+        l, h_, p = ci(lambda d: d[k_bg] - d[k_est])
+        print(f"{'  BACKGROUND - ESTIMATION':<34}{pt[k_bg]-pt[k_est]:>10.4f}"
+              f"{f'[{l:+.4f}, {h_:+.4f}]':>24}   P(bg>est)   = {p:.4f}")
+        payload["background_field_ci"] = [l, h_]
+
+    suffix = "_splitbg" if args.split_background else ""
+    out = f"{args.panel}/etas_crossover_{args.background}{suffix}.json"
+    json.dump(payload, open(out, "w"), indent=2)
     print(f"\nwrote {out}")
     return 0
 
