@@ -1473,6 +1473,51 @@ of this probe, stated plainly: **one capacity step, one seed, one mc, one
 hyperparameter setting.** It rules out the cheapest explanation, not every
 explanation.
 
+### G2 re-run under the surface protocol — the selection objection closed
+
+Everything above reports ONE early-stopped checkpoint per model, and its own
+headline is a selection statement ("best val at step **1,400 instead of
+8,200**"). A referee is entitled to answer that the 2x model was simply stopped
+somewhere bad — and the surface protocol exists precisely because early stopping
+makes "which checkpoint gets reported" a function of mc. Re-run with early
+stopping OFF, every checkpoint kept, and both capacities scored on the
+**bit-identical frame** the 1x curve used (`6867a80838a3da31`, 1,673 windows,
+123 targets), the comparison is plateau against plateau. 23 plateau checkpoints
+each, mc {2.5, 1.0}, `runs/surface_white_2x`:
+
+| mc | 1x (15,428) | 2x (51,748) | 2x − 1x |
+|---|---|---|---|
+| 2.5 | −4.0427 | −4.1007 | −0.0580 |
+| 1.0 | −5.1194 | −5.1082 | +0.0112 |
+
+| | nats/decade | 95% CI |
+|---|---|---|
+| 1x | −0.7178 | [−0.9510, −0.4463] |
+| **2x** | **−0.6717** | [−0.9589, −0.3519] |
+| 2x − 1x | +0.0461 | [−0.1069, +0.1917] |
+
+**P(2x slope < 0) = 1.0000.** The two capacities are indistinguishable
+(+0.0461, interval straddling zero) and P(the 2x model closes even a quarter of
+the 1x decline) = **0.0583**. 3.35x the parameters does not bend the curve.
+Together with the correction above, the defensible claim is: **head capacity is
+not what binds, and that now holds under a protocol with no checkpoint selection
+in it.**
+
+> **Operational note, because it nearly cost the result.** The first attempt ran
+> 3 concurrent scorers and **20 of the 33 mc 1.0 points died of CUDA OOM** —
+> three workers at 14.74 GiB on a 31 GiB card, the deeper mc 1.0 conditioning
+> history plus the larger model tipping over what the 1x run handled fine at the
+> same settings. The run still exited **rc=0**, still wrote `surface.json`, and
+> still printed a tidy per-mc summary — with `n=13` in a column that is easy to
+> skim past. **A partially-failed scoring sweep does not look like a failure.**
+> Check the scored count per mc before reading any surface, and prefer
+> `--score-concurrency 1` when the deepest mc is in the grid. `--keep-all-ckpts`
+> made recovery free: all 240 checkpoints were still on disk and scoring skips
+> any point that already has a `target_process.json`, so the retry redid exactly
+> the 20 missing ones. `max_lanes` was deliberately NOT lowered to buy back
+> parallelism — chunking changes which random draws reach which lane, and this
+> run exists to be a clean 1x/2x contrast.
+
 ### Seed robustness — the inverted U is not seed noise
 
 Every curve point is a single training seed, which was the one weakness that
