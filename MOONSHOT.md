@@ -16,6 +16,19 @@ Measured on a bit-identical frame (1,673 windows, 123 scored M>=3 targets, same
 grid, verified by hash), the corrected neural curve -- the checkpoint-surface
 plateau, not the early-stopping artefact -- against the ETAS control:
 
+> **Why 123 and not the frame's 132.** Nine M>=3 targets fall in grid cells that
+> contain no training-era seismicity at all, i.e. outside the active mask, and
+> are not scored. The mask is the data-driven stand-in for CSEP's a-priori
+> testing region (`Grid.active_mask`): built from the **training era at all
+> magnitudes**, so it is causal — no test-window information — and, decisively
+> here, **mc-independent**. It is a property of the network footprint, not of
+> the threshold under study. The frame is built ONCE and shared, so the same 123
+> events are scored at every mc and by both model classes; the nine dropped are
+> M 3.06–3.92 at nine separated times rather than one sequence. A per-mc mask
+> would leak a second mc dependence into the metric and is exactly what invariant
+> 1 forbids. So this choice cannot move the SLOPE, which is the headline — it
+> only sets the sample the slope is measured on, which is shortcoming 5.
+
 | mc | FlowQuake | ETAS (uniform) | margin |
 |---|---|---|---|
 | 2.5 | -4.0427 | -5.6003 | **+1.5576** |
