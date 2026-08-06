@@ -6,11 +6,60 @@ but is forbidden below, the decision is wrong.
 
 ---
 
-## THE ANSWER, 2026-08-05
+## THE ANSWER, 2026-08-06 (two regions)
 
-> **A decade of magnitude below M3 is worth +0.22 [+0.02, +0.40] nats to a
-> fitted ETAS and -0.71 [-0.95, -0.46] nats to a flexible learned model, scored
-> on identical target events. They differ in SIGN with probability 0.985.**
+> **A decade of magnitude below the target is worth +0.30 [+0.02, +0.58] nats to
+> a fitted ETAS and -0.73 [-0.97, -0.48] nats to a flexible learned model,
+> scored on identical target events. Pooled over two regions, the signs differ.**
+
+| region | span | targets | FlowQuake | ETAS | ETAS - FQ | P(signs differ) |
+|---|---|---|---|---|---|---|
+| San Jacinto (WHITE) | 1.5 dec | 123 | -0.7135 | +0.2162 | +0.9297 | 0.9853 |
+| Salton Sea (QTM) | 0.8 dec | 70 | -1.4247 | +0.5379 | +1.9626 | 0.9128 |
+| **POOLED (DL random effects)** | | **193** | **-0.7266** | **+0.3030** | **+1.0807** | |
+| | | | [-0.9726, -0.4806] | [+0.0232, +0.5828] | [+0.3655, +1.7960] | |
+
+Both pooled intervals exclude zero and carry opposite signs. Heterogeneity is
+I^2 = 0% (FlowQuake), 36% (ETAS), 26% (difference) -- but with two regions
+Cochran's Q has 1 df, so a non-significant Q is *not* evidence the regions
+agree, and tau^2 is too imprecisely estimated to read as a real between-region
+variance. Both frames were hash-verified identical to their own ETAS control
+before scoring (`6867a80838a3da31`, `344a2a1c6fa0fc4f`).
+
+**What the per-decade slope is, exactly.** For equally spaced mc grids the OLS
+slope is the ENDPOINT CONTRAST and nothing else -- at Salton Sea the interior
+point provably contributes zero (slope -1.42475 either way), and at WHITE the
+two agree to 0.004. So this number answers "shallowest versus deepest" and is
+**blind to the shape in between**. That blindness costs nothing at WHITE and
+hides something large at Salton Sea; see below.
+
+### The shape is region-dependent, and only one region has an interior optimum
+
+Under the selection-free surface protocol the two regions disagree about shape,
+which is a finding rather than noise to average away:
+
+| | WHITE | Salton Sea |
+|---|---|---|
+| P(interior optimum) | 0.5337 | **1.0000** |
+| P(monotone non-increasing) | 0.4580 | **0.0000** |
+| best interior gain | +0.0126 (mc 2.0) | **+1.4703** (mc 2.1) |
+
+At WHITE the inverted U did not survive the removal of checkpoint selection
+(invariant 1u). **At Salton Sea it does, decisively.** Lowering mc from 2.5 to
+2.1 buys the learned model +1.4703 [+1.0478, +2.1102] nats; lowering it further
+to 1.7 costs -2.6100 [-3.6275, -1.2635]. The optimum is not a selection
+artefact: that point's plateau has sd 0.0324 over 23 checkpoints and its
+trajectory converges smoothly to a flat -1.20 from step 1,000 on. It is also
+the sharpest (n_eff 7.0) and the best calibrated in rate (87.0 expected against
+70 observed, where mc 2.5 over-predicts by 2.1x).
+
+So "deeper catalogs hurt the learned model" is too crude. The defensible
+statement is **there is an optimal completeness, it is region-dependent, and
+descending past it is expensive** -- at Salton Sea catastrophically so. The
+pooled slope is real but it is an endpoint summary of two differently shaped
+curves.
+
+### The WHITE panel in detail
 
 Measured on a bit-identical frame (1,673 windows, 123 scored M>=3 targets, same
 grid, verified by hash), the corrected neural curve -- the checkpoint-surface
@@ -41,6 +90,22 @@ plateau, not the early-stopping artefact -- against the ETAS control:
 | ETAS | **+0.2162** | [+0.0209, +0.3973] | +0.3291 [+0.0573, +0.5799] |
 | FlowQuake | **-0.7135** | [-0.9512, -0.4555] | -1.0767 [-1.4264, -0.6695] |
 | difference | **+0.9297** | [+0.6449, +1.1879] | |
+
+### The Salton Sea panel in detail
+
+1,309 windows, 70 scored M>=3 targets, bin 3.0 km, frame hash
+`344a2a1c6fa0fc4f` shared with its ETAS control. Note FlowQuake leads at every
+completeness here, by far more than at WHITE, and the margin still collapses:
+
+| mc | FlowQuake | ETAS (uniform) | margin | n_sims (matched) |
+|---|---|---|---|---|
+| 2.5 | -2.6919 | -4.3849 | **+1.6930** | 32,812 |
+| 2.1 | **-1.2217** | -4.0986 | +2.8769 | 14,642 |
+| 1.7 | -3.8317 | -3.9546 | **+0.1229** | 6,112 |
+
+The margin runs +1.69 -> +2.88 -> **+0.12**: at the deepest catalog the learned
+model's entire advantage over a fitted ETAS is gone, exactly as at WHITE
+(+1.5576 -> +0.1518). Two regions, two target sets, same collapse.
 
 **The information channel is demonstrated, not assumed (invariant 1y).** A 2x2
 cross-over of ETAS parameters against conditioning history shows the entire
@@ -166,10 +231,48 @@ the two curves separate.
      is **not identified by the 2x2**, and the Salton Sea smoothed cell is the
      proof.
 
-   `--split-background` unties `bg` from `P` to resolve exactly this
-   (`etas_crossover_smoothed_splitbg.json`). Until that is read, the moonshot's
-   central sentence rests on the information cell above, which is the one that
-   replicates 4/4 -- not on the estimation cell, which does not.
+   **RESOLVED by untying `bg` from `P`** (`--split-background`,
+   `etas_crossover_smoothed_splitbg.json`). The 3-way split reproduces the
+   baseline and full cells of the 2x2 to the digit (-5.7413/-5.3580 at WHITE,
+   -4.2422/-3.8850 at Salton Sea), so it is the same experiment with one more
+   cell, and it explains the anomaly outright:
+
+   | channel (smoothed bg) | WHITE | Salton Sea |
+   |---|---|---|
+   | INFORMATION (history only) | +0.4282 | +0.2285 |
+   | **ESTIMATION (parameters only, bg held)** | **-0.2610** | **-0.0058** |
+   | BACKGROUND (bg field only) | -0.0018 | **+0.2285** |
+   | P(info > est) | 1.0000 | **0.9798** (was 0.4487) |
+
+   **Parameter estimation never helps.** Across all four region x background
+   combinations it is -0.2610, -0.0058, +0.0040, -0.0137 -- zero or negative
+   every time. Salton Sea's apparent +0.2462 "estimation" was the BACKGROUND
+   FIELD (+0.2285) misattributed, exactly as suspected; splitting it moves
+   P(info > est) from a coin flip to 0.9798.
+
+   The two regions gain by different routes. WHITE takes essentially all of it
+   through the conditioning history (+0.4282) with the background contributing
+   nothing (-0.0018); Salton Sea splits it evenly between history and background
+   (+0.2285 each). And WHITE's -0.2610 is a real cost, not a mismatch artefact:
+   with the background held fixed, parameters refitted on 10,601 events forecast
+   *worse* than parameters fitted on 520.
+
+   **Is the background channel information or estimation?** It is information.
+   The smoothed background is a nonparametric kernel density of training-era
+   epicentres, so deepening mc from 2.5 to 1.7 builds that map from ~5x more
+   earthquakes. A better map of *where* earthquakes occur, learned from small
+   ones, is precisely the moonshot's quantity -- static spatial information
+   rather than dynamic triggering information. It is not "the same model fitted
+   better," which is the identifiability threat invariant 1x raised. So the
+   corrected reading is that ETAS's gain runs through **two** information
+   channels, in region-dependent proportion, and through **no** estimation
+   channel.
+
+   One caveat stated rather than buried: the single-channel deltas do not sum to
+   the full gain (WHITE +0.1654 against +0.3833; Salton Sea +0.4512 against
+   +0.3573). The channels interact, so these are main effects in the presence of
+   interaction, not a variance decomposition, and they should not be read as
+   shares of a total.
 
    **This sharpens the moonshot claim rather than merely defending it.** The
    information in small earthquakes is now demonstrated directly, through a

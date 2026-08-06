@@ -1,0 +1,54 @@
+data:
+  catalog_path: reference/Datasets/QTM/SaltonSea_catalog.csv
+  mcut: 1.7
+  aux_start: '2008-01-01'
+  train_start: '2008-01-01'
+  val_start: '2013-06-01'
+  test_start: '2014-06-01'
+  test_end: '2017-12-31'
+  n_near: 0
+  near_rmax_km: 30.0
+  adaptive_bg: false
+model:
+  d_model: 64
+  n_layers: 3
+  d_state: 24
+  n_heads: 4
+  expand: 2
+  chunk: 64
+  flow_hidden: 64
+  mix_hidden: 48
+  flow_layers: 3
+  loss_weights:
+  - 1.0
+  - 1.0
+  - 0.5
+  sigma_min:
+  - 0.02
+  - 0.01
+  - 0.05
+  dropout: 0.15
+  mag_dequant: 0.01
+  input_noise: 0.1
+  h_bottleneck: 0
+  h_noise: 0.3
+  spatial_density_feat: true
+  density_radius_km: 2.0
+  d_floor_km: 0.1
+  encoder_input: full
+  frame_shift: 0.5
+train:
+  window: 1024
+  burn_in: 128
+  batch_size: 8
+  steps: 12000
+  lr: 0.0004
+  weight_decay: 0.05
+  warmup: 400
+  grad_clip: 1.0
+  seed: 1000
+  val_every: 50
+  val_events: 2048
+  val_ode_steps: 32
+  patience: 1000000000
+  out_dir: runs/surface_saltonsea/matched_window_mc1.7_s0
