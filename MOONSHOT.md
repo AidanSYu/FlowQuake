@@ -73,6 +73,43 @@ in a direction the likelihood dislikes. ETAS meanwhile converts the same extra
 events into a forecast that is both sharper AND better -- which is precisely why
 the two curves separate.
 
+1x. **The ETAS baseline is weakly identified, and the headline sentence rests
+   on it.** The moonshot says "the information is demonstrably present -- ETAS
+   extracts it". That reading assumes ETAS's +0.2162/decade measures
+   INFORMATION. A competing explanation is ESTIMATION: ETAS gets 520 training
+   events at mc 2.5 and 10,601 at mc 1.0, a **20x larger estimation sample**, so
+   its forecasts could improve for reasons having nothing to do with small
+   earthquakes carrying signal about large ones.
+
+   Tested by refitting at a fixed 520-event budget
+   (`scripts/etas_matched_n.py`, `runs/panel_white/etas_matched_n_uniform.json`).
+   **The test is inconclusive as designed, and the reason is itself the finding:**
+
+   | mc | arm | N | a | K | n |
+   |---|---|---|---|---|---|
+   | 2.5 | both (identical) | 520 | 0.344 | 0.649 | 0.99 |
+   | 2.0 | matched_n | 520 | 0.587 | 0.409 | 0.99 |
+   | 1.5 | matched_n | 520 | **4.3e-142** | 0.99 | 0.99 |
+   | 1.0 | matched_n | 520 | **0.011** | 0.979 | 0.99 |
+
+   At 520 events the low-mc fits COLLAPSE: the productivity exponent `a` goes to
+   numerical zero -- aftershock productivity independent of magnitude, which is
+   physically false -- while `K` pins at its bound. And `n = 0.99`, the branching
+   barrier, in **all eight fits**. Truncating to the most recent 520 events also
+   shortens the time window, so sample size and span are confounded and no clean
+   attribution is possible from this design.
+
+   What it does establish: **the control is fragile.** An ETAS that degenerates
+   at 520 events is a weak foundation for a claim about what information exists,
+   and a referee will say so.
+
+   **The correct test, not yet run**, avoids starving any fit. ETAS's forecast
+   uses two separable channels: (a) parameters estimated from the training
+   catalog at that mc, and (b) the conditioning history fed to the intensity at
+   forecast time. Gain via (b) is information; gain via (a) is estimation. A 2x2
+   cross-over -- theta fitted at mc 1.0 used with mc 2.5 history, and the
+   reverse -- separates them with every fit fully identified.
+
 1w. **When a confound is removed, EVERY number derived from the confounded run
    is suspect, not just the headline.** The `n_eff` mechanism story survived the
    correction unexamined and was written into this file, minutes after the
