@@ -44,6 +44,11 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--pooled", default="runs/moonshot_pooled.json")
     ap.add_argument("--out", default="figures/moonshot_two_region.png")
+    ap.add_argument("--title", default=None,
+                    help="override the suptitle. The default states the result "
+                         "in nats, which is right for the paper and wrong for a "
+                         "reader outside point-process work; a memo version "
+                         "should pass plain language here.")
     args = ap.parse_args(argv)
 
     pooled = json.load(open(args.pooled))
@@ -130,10 +135,11 @@ def main(argv=None):
 
     tot = sum(r["n_targets"] for _, r, _, _ in res)
     fig.suptitle(
-        "A decade of magnitude buys a fitted ETAS "
-        f"{pooled['ETAS']['estimate']:+.2f} nats and a flexible learned model "
-        f"{pooled['FlowQuake']['estimate']:+.2f} — "
-        f"two regions, {tot} target events, identical frames",
+        args.title or
+        ("A decade of magnitude buys a fitted ETAS "
+         f"{pooled['ETAS']['estimate']:+.2f} nats and a flexible learned model "
+         f"{pooled['FlowQuake']['estimate']:+.2f} — "
+         f"two regions, {tot} target events, identical frames"),
         fontsize=12.5)
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     fig.savefig(args.out, dpi=200)
