@@ -75,6 +75,38 @@ def main(argv=None):
                     help="deepest history threshold to test")
     ap.add_argument("--step", type=float, default=0.25)
     ap.add_argument("--background", default="uniform")
+    ap.add_argument("--fit-anchor", type=float, default=None,
+                    help="mc at which ETAS is FITTED, if different from --anchor "
+                         "(the ladder's top rung). Exists to test whether the "
+                         "measured shape is a property of the catalogue or of one "
+                         "particular fitted theta: hold the rungs fixed and vary "
+                         "only which events the fit saw. Defaults to --anchor, "
+                         "which is the behaviour every published run used.")
+    ap.add_argument("--jitter-km", type=float, default=0.0,
+                    help="Gaussian noise (sd, km) added to the epicentres of "
+                         "the CONDITIONING HISTORY only, leaving targets and "
+                         "the grid untouched. Sweeping this prices location "
+                         "accuracy in forecast-information units, which is the "
+                         "quantity dense arrays actually improve.")
+    ap.add_argument("--jitter-slope", type=float, default=0.0,
+                    help="decades of location-error REDUCTION per magnitude "
+                         "unit above --floor, so sd(m) = jitter_km * "
+                         "10^(-slope*(m - floor)). This is the confound the "
+                         "uniform sweep cannot see: real networks locate small "
+                         "events worse than large ones, because fewer stations "
+                         "record them at lower SNR. If magnitude-dependent "
+                         "error steepens the saturation slope at matched total "
+                         "loss, then an apparent information floor can be "
+                         "manufactured by the instrument rather than the "
+                         "earthquakes. slope=0 reproduces the uniform case "
+                         "BIT-IDENTICALLY (numpy draws normal(0,s) as "
+                         "s*normal(0,1)), so published sweeps are unaffected.")
+    ap.add_argument("--jitter-min-km", type=float, default=0.0,
+                    help="lower bound on sd(m). Real networks do not locate "
+                         "anything better than ~100 m however large it is; "
+                         "leaving this at 0 lets the tilt drive sd to "
+                         "physically absurd precision at the top of the range.")
+    ap.add_argument("--jitter-seed", type=int, default=0)
     ap.add_argument("--n-boot", type=int, default=4000)
     ap.add_argument("--out", default=None)
     args = ap.parse_args(argv)
@@ -96,16 +128,54 @@ def main(argv=None):
     val = (pd.Timestamp(cfg.data.val_start) - t0).total_seconds() / 86400.0
     tr0 = (pd.Timestamp(cfg.data.train_start) - t0).total_seconds() / 86400.0
 
+    # Perturb ONCE, before anything else, so every rung sees the same displaced
+    # catalog. Jittering per-rung would let noise differ between rungs and the
+    # increments would be measuring the noise draw rather than the magnitude
+    # band. Targets are read from the frame and are never touched, so this
+    # degrades only what the forecast conditions on, which is the channel dense
+    # arrays improve.
+    if args.jitter_km > 0:
+        jr = np.random.default_rng(args.jitter_seed)
+        # sd is anchored AT THE FLOOR and shrinks upward, so jitter_km always
+        # means "the error on the smallest events the ladder scores" whatever
+        # the tilt is. Anchoring at the anchor instead would silently rescale
+        # the whole curve when --floor moves.
+        sd = args.jitter_km * np.power(10.0, -args.jitter_slope * (mm - args.floor))
+        if args.jitter_min_km > 0:
+            sd = np.maximum(sd, args.jitter_min_km)
+        # normal(0, s) is drawn as s * normal(0, 1), verified equal, so the
+        # slope=0 path consumes the same stream and returns the same numbers as
+        # the scalar-scale call this replaced.
+        xx = xx + jr.normal(0.0, 1.0, size=xx.shape) * sd
+        yy = yy + jr.normal(0.0, 1.0, size=yy.shape) * sd
+        if args.jitter_slope:
+            print(f"[jitter] magnitude-dependent: sd {args.jitter_km:g} km at "
+                  f"m {args.floor:g}, falling {args.jitter_slope:g} decades per "
+                  f"magnitude unit (sd {sd.min():.3f}-{sd.max():.3f} km, "
+                  f"seed {args.jitter_seed})")
+        else:
+            print(f"[jitter] history epicentres displaced by "
+                  f"{args.jitter_km:g} km sd (seed {args.jitter_seed})")
+
     n_steps = int(round((args.anchor - args.floor) / args.step))
     ladder = [round(args.anchor - i * args.step, 4) for i in range(n_steps + 1)]
+    # Where theta is FITTED is a separate choice from where the ladder STARTS.
+    # Tying them, as this script originally did, means the only way to vary the
+    # fit is to vary the measurement range too, so a stable result and a
+    # coincidence look identical. Decoupling them is what makes the
+    # specificity control possible: same rungs, same targets, same windows,
+    # several genuinely different frozen theta.
+    fit_mc = args.fit_anchor if args.fit_anchor is not None else args.anchor
     print(f"ladder: {ladder}")
-    print(f"anchor fit at mc {args.anchor:g}, background {args.background}\n")
+    print(f"theta fitted at mc {fit_mc:g}"
+          f"{' (DECOUPLED from the ladder top)' if fit_mc != args.anchor else ''}"
+          f", background {args.background}\n")
 
-    sel = (mm >= args.anchor) & (tt >= tr0) & (tt < val)
+    sel = (mm >= fit_mc) & (tt >= tr0) & (tt < val)
     a = time.time()
-    P, bg, _ = fit_etas_em(tt[sel], xx[sel], yy[sel], mm[sel], mc=args.anchor,
+    P, bg, _ = fit_etas_em(tt[sel], xx[sel], yy[sel], mm[sel], mc=fit_mc,
                            region=region, background=args.background)
-    print(f"[fit ] mc {args.anchor:g}: {int(sel.sum()):,} events, "
+    print(f"[fit ] mc {fit_mc:g}: {int(sel.sum()):,} events, "
           f"{time.time()-a:.0f}s, n={branching_ratio(P):.3f}\n")
 
     rungs = {}
@@ -164,7 +234,8 @@ def main(argv=None):
               f"{f'[{l:+.4f}, {h_:+.4f}]':>24}{d/args.step:>13.4f}")
 
     total = pt[ladder[-1]] - pt[ladder[0]]
-    l, h_, p = ci(lambda x: x[ladder[-1]] - x[ladder[0]])
+    total_lo, total_hi, total_p = ci(lambda x: x[ladder[-1]] - x[ladder[0]])
+    l, h_, p = total_lo, total_hi, total_p
     print(f"{'TOTAL':>16}{total:>11.4f}{f'[{l:+.4f}, {h_:+.4f}]':>24}"
           f"{total/(args.anchor-args.floor):>13.4f}")
 
@@ -197,17 +268,45 @@ def main(argv=None):
         print("  positive slope => deeper bands pay LESS => approaching a floor")
         print("  interval spanning zero => no floor detected in this range")
 
-    out = args.out or f"{args.panel}/information_ladder_{args.background}.json"
-    json.dump({"anchor": args.anchor, "floor": args.floor, "step": args.step,
-               "background": args.background, "ladder": ladder,
+    tag = f"_j{args.jitter_km:g}" if args.jitter_km else ""
+    if args.jitter_km and args.jitter_slope:
+        tag += f"_sl{args.jitter_slope:g}"
+    out = (args.out
+           or f"{args.panel}/information_ladder_{args.background}{tag}.json")
+    json.dump({"anchor": args.anchor, "fit_anchor": fit_mc,
+               "floor": args.floor, "step": args.step,
+               "background": args.background, "jitter_km": args.jitter_km,
+               "jitter_slope": args.jitter_slope,
+               "jitter_min_km": args.jitter_min_km,
+               "jitter_seed": args.jitter_seed,
+               "ladder": ladder,
                "ll_shape": {str(k): pt[k] for k in ladder},
                "increments": incs, "total": total,
+               # The total's interval is what decides whether a null region
+               # CONTRADICTS a positive one or merely cannot see it. Printing it
+               # and discarding it made that question unanswerable without a
+               # re-run, which is exactly what happened to San Jacinto.
+               "total_ci": [total_lo, total_hi], "p_total_pos": total_p,
                "saturation_slope": t_pt,
                "saturation_ci": ([tl, th] if t_pt is not None else None),
                "p_saturating": tp, "n_windows": n_win,
                "n_targets": int(tgt.sum())},
               open(out, "w"), indent=2)
-    print(f"\nwrote {out}")
+    # The per-window matrix, always, alongside the summary. Every downstream
+    # question about SHAPE -- where the floor is, whether saturating beats
+    # scale-free, how much information is left below the deepest rung -- needs to
+    # resample windows, and the summary JSON has already collapsed them. It is
+    # ~100 kB against a ladder that costs the better part of an hour, so making
+    # it optional only creates runs that have to be repeated. Column order is
+    # `ladder`, row order is the frame's own window order.
+    npz = out[:-5] + "_windows.npz" if out.endswith(".json") else out + "_windows.npz"
+    np.savez_compressed(
+        npz,
+        ladder=np.array(ladder, dtype=np.float64),
+        ll_shape=np.stack([S[k] for k in ladder], axis=1),
+        n_target_obs=tgt,
+    )
+    print(f"\nwrote {out}\nwrote {npz}")
     return 0
 
 

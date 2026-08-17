@@ -68,10 +68,12 @@ class FlowQuakeTPP(nn.Module):
         mix_k: int | None = None,   # total mixture components (default MIX_K)
         encoder_input: str = "full",   # gate G2: full | safe | augmented
         frame_shift: float = 0.5,      # sd of the augmented translation
+        mag_loss_gamma: float = 0.0,   # GR tilt of the training objective
     ):
         super().__init__()
         mix_k = MIX_K if mix_k is None else mix_k
         self.h_bottleneck = h_bottleneck
+        self.mag_loss_gamma = float(mag_loss_gamma)
         self.h_noise = h_noise
         self.encoder_input = encoder_input
         self.frame_shift = frame_shift
@@ -235,19 +237,42 @@ class FlowQuakeTPP(nn.Module):
         lastk (B,W,K,4) raw; raw_next (B,W,3) raw (x,y,mag) of next event."""
         st = self.stats
         cond = self._cond(tokens, mask)
+        m_tgt = raw_next[mask][:, 2]
+
+        # WHY THE OBJECTIVE CAN BE TILTED. The catalog is Gutenberg-Richter
+        # distributed, so lowering the completeness threshold adds events in
+        # GEOMETRICALLY increasing numbers at the small end: a decade of mc buys
+        # ~10x more training events, nearly all of them tiny. Uniform averaging
+        # therefore makes the loss progressively more about micro-seismicity as
+        # the catalog deepens, while the model is still scored on rare large
+        # events. That drift is a candidate explanation for why deeper catalogs
+        # make this model worse (MOONSHOT, the two-region result).
+        #
+        # w_i = 10^(gamma * (m_i - mc)) undoes it. GR says counts fall as
+        # 10^(-b(m-mc)), so gamma = b makes every magnitude band contribute
+        # equally to the loss and lowering mc no longer changes what is being
+        # optimised. gamma = 0 is the untilted objective and is preserved
+        # exactly: `weights=None` short-circuits to the original code path
+        # rather than multiplying by a tensor of ones.
+        #
+        # Weights are normalised to mean 1 so the gradient scale, and hence the
+        # meaning of the learning rate, does not move with gamma.
+        w = None
+        if self.mag_loss_gamma:
+            w = torch.pow(10.0, self.mag_loss_gamma * (m_tgt - st["mcut"]))
+            w = w / w.mean().clamp_min(1e-12)
 
         u_t = target[mask][:, 0:1]
-        loss_t = self.head_t.fm_loss(u_t, cond)
+        loss_t = self.head_t.fm_loss(u_t, cond, weights=w)
 
         comp_xy, comp_feats = self._comp_inputs(lastk[mask])
         s_tgt = raw_next[mask][:, :2]
         sll = self.head_s.log_prob(s_tgt, comp_xy, comp_feats, cond, st["bg_area"],
                                    log_kde_at_s=self._log_kde(s_tgt))
-        loss_s = -sll.mean()
+        loss_s = -(sll * w).mean() if w is not None else -sll.mean()
 
-        m_tgt = raw_next[mask][:, 2]
         mll = self.head_m.log_prob(m_tgt, cond, st["mcut"])
-        loss_m = -mll.mean()
+        loss_m = -(mll * w).mean() if w is not None else -mll.mean()
 
         wt, ws, wm = self.loss_weights
         total = wt * loss_t + ws * loss_s + wm * loss_m

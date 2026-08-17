@@ -40,3 +40,18 @@ per_event*.csv
 
 # Dry-run rehearsals of the surface pipeline (not results)
 runs/surface_dry/
+
+# Working notes and generated documents stay local; the repo that gets shared
+# carries code, tests, configs, and result summaries only.
+/*.pdf
+/output/
+/tmp/
+/MOONSHOT.md
+/WORKING.md
+/MANUSCRIPT.md
+/NOVELTY.md
+/PRIMER.md
+/REPLACEMENT_READINESS.md
+/SEED.md
+/STACK.md
+/docs/

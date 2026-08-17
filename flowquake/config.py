@@ -45,6 +45,7 @@ class ModelConfig:
     d_floor_km: float = 0.25
     encoder_input: str = "full"   # gate G2: full | safe | augmented
     frame_shift: float = 0.5
+    mag_loss_gamma: float = 0.0   # 0 = untilted; b = every magnitude band equal
 
 
 @dataclass

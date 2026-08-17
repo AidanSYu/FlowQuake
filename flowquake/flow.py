@@ -99,15 +99,26 @@ class CondFlow(nn.Module):
             t = t.expand(z.shape[0])
         return self.net(torch.cat([z, self.temb(t), cond], dim=-1))
 
-    def fm_loss(self, u: torch.Tensor, cond: torch.Tensor) -> torch.Tensor:
-        """Mean conditional flow-matching loss. u: (B, d), cond: (B, c)."""
+    def fm_loss(self, u: torch.Tensor, cond: torch.Tensor,
+                weights: torch.Tensor | None = None) -> torch.Tensor:
+        """Mean conditional flow-matching loss. u: (B, d), cond: (B, c).
+
+        `weights` (B,) reweights the per-event contribution. It exists so the
+        training objective can be tilted toward the magnitudes the model is
+        actually scored on; see FlowQuakeTPP.fm_losses. With weights=None the
+        result is bit-identical to the unweighted mean, because mse over (B, d)
+        averaged whole equals the per-row mean averaged again.
+        """
         B = u.shape[0]
         s = self.sigma_min
         t = torch.rand(B, device=u.device, dtype=u.dtype)
         z0 = torch.randn_like(u)
         zt = (1.0 - (1.0 - s) * t.unsqueeze(-1)) * z0 + t.unsqueeze(-1) * u
         v = self.velocity(zt, t, cond)
-        return F.mse_loss(v, u - (1.0 - s) * z0)
+        tgt = u - (1.0 - s) * z0
+        if weights is None:
+            return F.mse_loss(v, tgt)
+        return (F.mse_loss(v, tgt, reduction="none").mean(dim=-1) * weights).mean()
 
     @torch.no_grad()
     def sample(self, cond: torch.Tensor, steps: int = 32) -> torch.Tensor:

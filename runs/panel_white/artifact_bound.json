@@ -1,0 +1,27 @@
+{
+  "clean_slope": 0.06473940170007347,
+  "levels": [
+    {
+      "tilt": 0.4,
+      "slope_mean": 0.07606248980081066,
+      "slope_sd": 0.0050694481433677455,
+      "n": 3
+    },
+    {
+      "tilt": 0.8,
+      "slope_mean": 0.07735299847544468,
+      "slope_sd": 0.0017991325147645656,
+      "n": 3
+    }
+  ],
+  "response_rates": [
+    0.02830772025184298,
+    0.015766995969214003
+  ],
+  "linearity_note": "response rate FALLS with tilt: the mechanism saturates, so a bound built on the low-tilt rate is CONSERVATIVE",
+  "tilt_required_for_full_artifact": 2.286987476353155,
+  "artifact_share": {
+    "0.2": 0.08745128780456694,
+    "0.4": 0.1749025756091339
+  }
+}

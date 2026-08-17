@@ -1,0 +1,61 @@
+# WHITE with the training objective GR-tilted by gamma = 1.0.
+#
+# WHY. The catalog is Gutenberg-Richter distributed, so lowering mc adds
+# events in geometrically increasing numbers at the small end. Uniform
+# averaging therefore makes the loss progressively more about
+# micro-seismicity as the catalog deepens, while scoring stays on rare
+# M>=3 events. That drift is the leading candidate explanation for why
+# this model gets WORSE on deeper catalogs (MOONSHOT, two-region result).
+#
+# w_i = 10^(gamma (m_i - mc)) undoes it. GR counts fall as 10^(-b(m-mc)),
+# so gamma = b makes every magnitude band contribute equally and lowering
+# mc stops changing what is optimised. WHITE's b is 1.0094, so gamma 1.0
+# is the principled setting and 0.5 is the half-way control that shows
+# whether any effect is monotone in the tilt rather than a threshold.
+#
+# Everything else is byte-identical to configs/panel_white.yaml, so the
+# only difference from the published mc 1.0 point is the weighting.
+data:
+  catalog_path: reference/Datasets/WHITE/WHITE_catalog.csv
+  mcut: 1.0
+  aux_start: '2008-01-01'
+  train_start: '2008-01-01'
+  val_start: '2015-01-01'
+  test_start: '2016-06-01'
+  test_end: '2020-12-31'
+model:
+  d_model: 64
+  n_layers: 3
+  d_state: 24
+  n_heads: 4
+  expand: 2
+  chunk: 64
+  flow_hidden: 64
+  mix_hidden: 48
+  flow_layers: 3
+  loss_weights: [1.0, 1.0, 0.5]
+  sigma_min: [0.02, 0.01, 0.05]
+  dropout: 0.15
+  mag_dequant: 0.01
+  input_noise: 0.1
+  h_bottleneck: 0
+  h_noise: 0.3
+  spatial_density_feat: true
+  d_floor_km: 0.1
+  encoder_input: full
+  mag_loss_gamma: 1.0
+train:
+  window: 1024
+  burn_in: 128
+  batch_size: 8
+  steps: 12000
+  lr: 0.0004
+  weight_decay: 0.05
+  warmup: 400
+  grad_clip: 1.0
+  seed: 1555
+  val_every: 200
+  val_events: 2048
+  val_ode_steps: 32
+  patience: 20
+  out_dir: runs/panel_white

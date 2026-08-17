@@ -53,6 +53,7 @@ def make_model(cfg: Config, stats: dict) -> FlowQuakeTPP:
         d_floor_km=getattr(m, "d_floor_km", 0.25),
         encoder_input=getattr(m, "encoder_input", "full"),
         frame_shift=getattr(m, "frame_shift", 0.5),
+        mag_loss_gamma=getattr(m, "mag_loss_gamma", 0.0),
     )
 
 
